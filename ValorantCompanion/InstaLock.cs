@@ -51,6 +51,19 @@ namespace ValorantCompanion
             this.MinimizeBox = false;
             this.SizeGripStyle = SizeGripStyle.Hide;
 
+            //Stop window from resizing
+            this.FormBorderStyle = FormBorderStyle.FixedSingle; // disables resizing border
+            this.MaximizeBox = false;                            // disable maximize
+            this.MinimizeBox = false;                            // optional: set true if you want minimize
+            this.SizeGripStyle = SizeGripStyle.Hide;             // hide size grip
+
+            var fixedSize = this.Size;
+            this.MinimumSize = fixedSize;
+            this.MaximumSize = fixedSize;
+
+
+            this.StartPosition = FormStartPosition.CenterScreen;
+
             _agentsJsonFile = Path.Combine(_cacheFolder, "agents.json");
 
             InitializeLayout();
