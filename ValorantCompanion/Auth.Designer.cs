@@ -36,20 +36,20 @@
             lblstatus.AutoSize = true;
             lblstatus.Depth = 0;
             lblstatus.Font = new Font("Roboto", 14F, FontStyle.Regular, GraphicsUnit.Pixel);
-            lblstatus.Location = new Point(233, 244);
+            lblstatus.Location = new Point(21, 75);
             lblstatus.MouseState = MaterialSkin.MouseState.HOVER;
             lblstatus.Name = "lblstatus";
             lblstatus.Size = new Size(319, 19);
             lblstatus.TabIndex = 0;
             lblstatus.Text = "Authenticating with Riot Games and Valorant";
             // 
-            // Main
+            // Auth
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(365, 108);
             Controls.Add(lblstatus);
-            Name = "Main";
+            Name = "Auth";
             ResumeLayout(false);
             PerformLayout();
         }
