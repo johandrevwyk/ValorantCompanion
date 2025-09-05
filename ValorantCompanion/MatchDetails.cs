@@ -2,12 +2,15 @@
 using MaterialSkin.Controls;
 using RadiantConnect;
 using RadiantConnect.Network.CurrentGameEndpoints.DataTypes;
+using RadiantConnect.Network.PreGameEndpoints.DataTypes;
 using RadiantConnect.Network.PVPEndpoints.DataTypes;
 using RadiantConnect.RConnect;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -41,6 +44,7 @@ namespace ValorantCompanion
                 TextShade.WHITE
             );
 
+            // Prevent resizing
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -58,18 +62,65 @@ namespace ValorantCompanion
                 if (!Directory.Exists(cacheFolder))
                     Directory.CreateDirectory(cacheFolder);
 
-                // Fetch current game info
-                //var pregamePlayer = await _initiator.Endpoints.PreGameEndpoints.FetchPreGameMatchAsync(GlobalClient.UserId);
-                var currentGamePlayer = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGamePlayerAsync(GlobalClient.UserId);
-                var matchId = currentGamePlayer.MatchId;
+                // --- STEP 1: Try to get CurrentGamePlayer ---
+                CurrentGamePlayer currentGamePlayer = null;
+                try
+                {
+                    currentGamePlayer = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGamePlayerAsync(GlobalClient.UserId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"CurrentGame fetch failed: {ex.Message}");
+                }
 
-                // Get full match data
-                //var pregame = await _initiator.Endpoints.PreGameEndpoints.FetchPreGameMatchAsync(pregameID);
-                var globalGame = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGameMatchAsync(matchId);
-                var playersList = globalGame.Players.ToList();
+                // --- STEP 2: Try to get PreGamePlayer ---
+                PreGamePlayer pregamePlayer = null;
+                try
+                {
+                    pregamePlayer = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync(GlobalClient.UserId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"PreGame fetch failed: {ex.Message}");
+                }
 
+                // --- STEP 3: Determine which data to use ---
+                bool inCurrentGame = currentGamePlayer != null && !string.IsNullOrEmpty(currentGamePlayer.MatchId);
+                bool inPreGame = pregamePlayer != null && !string.IsNullOrEmpty(pregamePlayer.MatchId);
 
-                // Clear previous items
+                if (!inCurrentGame && !inPreGame)
+                {
+                    Console.WriteLine("User is not in a match or pregame.");
+                    return; // Nothing to display
+                }
+
+                string matchId = inCurrentGame ? currentGamePlayer.MatchId : pregamePlayer.MatchId;
+
+                // --- STEP 4: Fetch full match data ---
+                List<dynamic> playersList = new List<dynamic>();
+
+                try
+                {
+                    if (inCurrentGame)
+                    {
+                        var globalGame = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGameMatchAsync(matchId);
+                        playersList = globalGame.Players.ToList<dynamic>();
+                    }
+                    else
+                    {
+                        var globalPreGame = await _initiator.Endpoints.PreGameEndpoints.FetchPreGameMatchAsync(matchId);
+                        playersList = globalPreGame.AllyTeam.Players.ToList<dynamic>();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to fetch match data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                Console.WriteLine($"Loaded {playersList.Count} players.");
+
+                // --- STEP 5: Clear old UI ---
                 flowPlayers.Controls.Clear();
 
                 // Load competitive tiers JSON once
@@ -79,20 +130,45 @@ namespace ValorantCompanion
                 );
                 var tiersData = tierDoc.RootElement.GetProperty("data").GetProperty("tiers");
 
+                // --- STEP 6: Loop through players and build UI ---
                 foreach (var player in playersList)
                 {
                     var playeruuid = player.Subject;
+
+                    // If it's PreGame, team data may not exist yet
+                    string playerteam = null;
+                    if (inCurrentGame && player.GetType().GetProperty("TeamID") != null)
+                    {
+                        playerteam = player.TeamID;
+                    }
+
                     var playername = await RConnectMethods.GetRiotIdByPuuidAsync(_initiator, playeruuid);
-                    var playerteam = player.TeamID;
                     var playeragent = player.CharacterID;
+                    bool playerincognito = false;
 
-                    // Fetch the player's MMR data
-                    PlayerMMR? playerMmr = await _initiator.Endpoints.PvpEndpoints.FetchPlayerMMRAsync(playeruuid);
+                    // Safely check for PlayerIdentity when in pregame
+                    if (player.GetType().GetProperty("PlayerIdentity") != null)
+                    {
+                        var identity = player.PlayerIdentity;
+                        if (identity != null && identity.GetType().GetProperty("Incognito") != null)
+                        {
+                            playerincognito = identity.Incognito;
+                        }
+                    }
 
-                    // Fetch the current season ID
-                    string? seasonId = await _initiator.FetchCurrentSeasonIdAsync();
+                    // --- Fetch MMR ---
+                    PlayerMMR playerMmr = null;
+                    try
+                    {
+                        playerMmr = await _initiator.Endpoints.PvpEndpoints.FetchPlayerMMRAsync(playeruuid);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to fetch MMR for {playername}: {ex.Message}");
+                    }
 
-                    // Default to 0 (Unranked)
+                    // --- Get current season ID ---
+                    string seasonId = await _initiator.FetchCurrentSeasonIdAsync();
                     long playertier = 0;
 
                     if (playerMmr != null &&
@@ -104,7 +180,7 @@ namespace ValorantCompanion
                         playertier = seasonData.CompetitiveTier ?? 0;
                     }
 
-                    // Find matching rank icon
+                    // --- Find rank icon URL ---
                     string tierIconUrl = null;
                     foreach (var tierEntry in tiersData.EnumerateArray())
                     {
@@ -116,16 +192,21 @@ namespace ValorantCompanion
                         }
                     }
 
-                    // Background color based on team
-                    var backgroundColor = playerteam == "Blue"
-                        ? Color.FromArgb(20, 20, 40)
-                        : Color.FromArgb(40, 20, 20);
+                    // --- Background color logic ---
+                    Color backgroundColor = Color.FromArgb(25, 25, 25); // default neutral
+                    if (inCurrentGame)
+                    {
+                        if (playerteam == "Blue")
+                            backgroundColor = Color.FromArgb(20, 20, 40);
+                        else if (playerteam == "Red")
+                            backgroundColor = Color.FromArgb(40, 20, 20);
+                    }
 
-                    // --- UI Layout ---
-                    int panelHeight = AgentImageSize + (BoxPadding * 4); // Slightly bigger than agent
-                    int panelWidth = AgentImageSize * 7; // More space for name and rank
+                    // --- Layout sizes ---
+                    int panelHeight = AgentImageSize + (BoxPadding * 4);
+                    int panelWidth = AgentImageSize * 7;
 
-                    // Player container panel
+                    // --- Player container panel ---
                     var playerPanel = new Panel
                     {
                         Width = panelWidth,
@@ -134,7 +215,7 @@ namespace ValorantCompanion
                         BackColor = backgroundColor
                     };
 
-                    // Agent image
+                    // --- Agent Image ---
                     var agentImage = new PictureBox
                     {
                         Width = AgentImageSize,
@@ -152,7 +233,7 @@ namespace ValorantCompanion
                             using (var client = new System.Net.WebClient())
                             {
                                 var data = await client.DownloadDataTaskAsync(agentImageUrl);
-                                using (var ms = new System.IO.MemoryStream(data))
+                                using (var ms = new MemoryStream(data))
                                 {
                                     agentImage.Image = Image.FromStream(ms);
                                 }
@@ -164,7 +245,7 @@ namespace ValorantCompanion
                         }
                     }
 
-                    // Player name label
+                    // --- Player Name ---
                     var nameLabel = new Label
                     {
                         Text = playername,
@@ -172,11 +253,44 @@ namespace ValorantCompanion
                         ForeColor = Color.White,
                         Font = new Font("Segoe UI", 10, FontStyle.Bold),
                         Location = new Point(agentImage.Right + 10, (panelHeight - 20) / 2),
-                        Width = panelWidth - AgentImageSize - 90, // Room for rank icon
+                        Width = panelWidth - AgentImageSize - 100,
                         TextAlign = ContentAlignment.MiddleLeft
                     };
 
-                    // Rank icon (80% of agent icon size)
+                    // --- Incognito Icon ---
+                    int incognitoSize = (int)(AgentImageSize * 0.7);
+                    var incognitoIcon = new PictureBox
+                    {
+                        Width = incognitoSize,
+                        Height = incognitoSize,
+                        SizeMode = PictureBoxSizeMode.Zoom,
+                        BackColor = Color.Transparent,
+                        Visible = playerincognito,
+                        Location = new Point(nameLabel.Right + 5, (panelHeight - incognitoSize) / 2)
+                    };
+
+                    if (playerincognito)
+                    {
+                        try
+                        {
+                            using (var client = new System.Net.WebClient())
+                            {
+                                var data = await client.DownloadDataTaskAsync(
+                                    "https://cdn.discordapp.com/attachments/861327604199587860/1413549994832822272/image.png?ex=68bc5685&is=68bb0505&hm=d1bebfc5e58660e332ce514fc6225c34fb0f1f3adfcaa429ec4dc24fe1a4e8d9&"
+                                );
+                                using (var ms = new MemoryStream(data))
+                                {
+                                    incognitoIcon.Image = Image.FromStream(ms);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            incognitoIcon.BackColor = Color.Gray;
+                        }
+                    }
+
+                    // --- Rank Icon ---
                     int rankSize = (int)(AgentImageSize * 0.8);
                     var rankImage = new PictureBox
                     {
@@ -199,21 +313,27 @@ namespace ValorantCompanion
                         }
                     }
 
-                    // Add controls
+                    // --- Add controls to panel ---
                     playerPanel.Controls.Add(agentImage);
                     playerPanel.Controls.Add(nameLabel);
+                    if (playerincognito)
+                        playerPanel.Controls.Add(incognitoIcon);
                     playerPanel.Controls.Add(rankImage);
 
+                    // --- Add to flow layout ---
                     flowPlayers.Controls.Add(playerPanel);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load current game: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Unexpected error loading players: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
 
+
+
+        // --- Helper: Load JSON with Cache ---
         private async Task<JsonDocument> LoadJsonWithCacheAsync(string url, string cacheFolder)
         {
             string hash = GetMd5Hash(url);
@@ -221,33 +341,28 @@ namespace ValorantCompanion
 
             if (File.Exists(cachePath))
             {
-                // Load JSON from cache
                 string cachedJson = await File.ReadAllTextAsync(cachePath);
                 return JsonDocument.Parse(cachedJson);
             }
 
-            // Download JSON and cache it
             using var http = new HttpClient();
             string json = await http.GetStringAsync(url);
             await File.WriteAllTextAsync(cachePath, json);
             return JsonDocument.Parse(json);
         }
 
+        // --- Helper: Load Image with Cache ---
         private async Task<Image> LoadImageWithCacheAsync(string url, string cacheFolder)
         {
-            using var http = new HttpClient();
-
-            // Create a hashed filename for the URL
             string hash = GetMd5Hash(url);
             string cachePath = Path.Combine(cacheFolder, hash + ".png");
 
-            // If image is cached, load it directly
             if (File.Exists(cachePath))
             {
                 return Image.FromFile(cachePath);
             }
 
-            // Otherwise, download and cache it
+            using var http = new HttpClient();
             var bytes = await http.GetByteArrayAsync(url);
             await File.WriteAllBytesAsync(cachePath, bytes);
 
@@ -255,6 +370,7 @@ namespace ValorantCompanion
             return Image.FromStream(ms);
         }
 
+        // --- Helper: MD5 Hash ---
         private string GetMd5Hash(string input)
         {
             using var md5 = MD5.Create();
@@ -262,12 +378,12 @@ namespace ValorantCompanion
             return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
         }
 
+        // --- Helper: Agent Image URL ---
         private string GetAgentImageUrl(string agentUuid)
         {
             if (string.IsNullOrWhiteSpace(agentUuid))
                 return null;
 
-            // Replace this with your actual agent image logic
             return $"https://media.valorant-api.com/agents/{agentUuid}/displayicon.png";
         }
     }

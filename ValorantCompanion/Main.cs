@@ -1,7 +1,9 @@
 ﻿using MaterialSkin;
 using MaterialSkin.Controls;
 using RadiantConnect;
+using RadiantConnect.Network.CurrentGameEndpoints.DataTypes;
 using RadiantConnect.Network.LocalEndpoints.DataTypes;
+using RadiantConnect.Network.PreGameEndpoints.DataTypes;
 using RadiantConnect.RConnect;
 using System;
 using System.Security.Cryptography;
@@ -32,12 +34,35 @@ namespace ValorantCompanion
                 TextShade.WHITE
             );
 
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.SizeGripStyle = SizeGripStyle.Hide;
-
             this.Shown += Main_Shown;
+
+            //Stop window from resizing
+            this.FormBorderStyle = FormBorderStyle.FixedSingle; // disables resizing border
+            this.MaximizeBox = false;                            // disable maximize
+            this.MinimizeBox = false;                            // optional: set true if you want minimize
+            this.SizeGripStyle = SizeGripStyle.Hide;             // hide size grip
+
+            var fixedSize = this.Size;
+            this.MinimumSize = fixedSize;
+            this.MaximumSize = fixedSize;
+
+
+            this.StartPosition = FormStartPosition.CenterScreen;
+
+            Point fixedLocation = materialCard1.Location;
+            Size fixedSize2 = materialCard1.Size;
+
+            // Prevent moving/resizing
+            materialCard1.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            materialCard1.Dock = DockStyle.None;
+
+            // Optional: enforce fixed location & size at runtime
+            materialCard1.Location = fixedLocation;
+            materialCard1.Size = fixedSize2;
+
+            // Optional: handle runtime attempts to move/resize
+            materialCard1.Resize += (s, e) => materialCard1.Size = fixedSize2;
+            materialCard1.Move += (s, e) => materialCard1.Location = fixedLocation;
         }
 
         private void btnInstaLock_Click(object sender, EventArgs e)
@@ -225,10 +250,47 @@ namespace ValorantCompanion
 
         private async void btnMatch_Click(object sender, EventArgs e)
         {
+            CurrentGamePlayer currentGamePlayer = null;
+            PreGamePlayer pregamePlayer = null;
 
-            var match = new MatchDetails();
+            // Try CurrentGame
+            try
+            {
+                currentGamePlayer = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGamePlayerAsync(GlobalClient.UserId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"CurrentGame fetch failed: {ex.Message}");
+            }
 
-            match.Show();
+            // Try PreGame
+            try
+            {
+                pregamePlayer = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync(GlobalClient.UserId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"PreGame fetch failed: {ex.Message}");
+            }
+
+            // Check if player is in *either* CurrentGame or PreGame
+            bool inMatch = (currentGamePlayer != null && !string.IsNullOrEmpty(currentGamePlayer.MatchId))
+                           || (pregamePlayer != null && !string.IsNullOrEmpty(pregamePlayer.MatchId));
+
+            if (inMatch)
+            {
+                var match = new MatchDetails();
+                match.Show();
+            }
+            else
+            {
+                MessageBox.Show("You are not in a match", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void Main_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }

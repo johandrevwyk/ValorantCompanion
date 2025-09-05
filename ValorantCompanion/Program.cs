@@ -33,7 +33,7 @@ namespace ValorantCompanion
             if (!IsProcessRunning("VALORANT")) // Replace with the actual process name
             {
                 MessageBox.Show(
-                    "Valorant is not currently running. Please start Valorant before running this companion app.",
+                    "Please start Valorant before running this companion app.",
                     "Valorant Not Running",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning

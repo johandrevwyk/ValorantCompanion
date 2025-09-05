@@ -43,10 +43,9 @@
             // 
             // imgCard
             // 
-            imgCard.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            imgCard.Location = new Point(768, 79);
+            imgCard.Location = new Point(807, 94);
             imgCard.Name = "imgCard";
-            imgCard.Size = new Size(190, 463);
+            imgCard.Size = new Size(231, 603);
             imgCard.SizeMode = PictureBoxSizeMode.StretchImage;
             imgCard.TabIndex = 0;
             imgCard.TabStop = false;
@@ -59,14 +58,14 @@
             lblPlayerName.Location = new Point(0, 1);
             lblPlayerName.MouseState = MaterialSkin.MouseState.HOVER;
             lblPlayerName.Name = "lblPlayerName";
-            lblPlayerName.Size = new Size(190, 19);
+            lblPlayerName.Size = new Size(231, 19);
             lblPlayerName.TabIndex = 1;
             lblPlayerName.Text = "Player Name";
             lblPlayerName.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // imgRank
             // 
-            imgRank.Location = new Point(64, 22);
+            imgRank.Location = new Point(83, 22);
             imgRank.Name = "imgRank";
             imgRank.Size = new Size(65, 65);
             imgRank.SizeMode = PictureBoxSizeMode.StretchImage;
@@ -81,7 +80,7 @@
             lblRR.Location = new Point(0, 89);
             lblRR.MouseState = MaterialSkin.MouseState.HOVER;
             lblRR.Name = "lblRR";
-            lblRR.Size = new Size(190, 18);
+            lblRR.Size = new Size(231, 18);
             lblRR.TabIndex = 3;
             lblRR.Text = "0/100 RR";
             lblRR.TextAlign = ContentAlignment.MiddleCenter;
@@ -94,12 +93,12 @@
             materialCard1.Controls.Add(lblRR);
             materialCard1.Depth = 0;
             materialCard1.ForeColor = Color.FromArgb(222, 0, 0, 0);
-            materialCard1.Location = new Point(768, 546);
+            materialCard1.Location = new Point(807, 731);
             materialCard1.Margin = new Padding(14);
             materialCard1.MouseState = MaterialSkin.MouseState.HOVER;
             materialCard1.Name = "materialCard1";
             materialCard1.Padding = new Padding(14);
-            materialCard1.Size = new Size(190, 110);
+            materialCard1.Size = new Size(231, 110);
             materialCard1.TabIndex = 4;
             // 
             // btnInstaLock
@@ -148,6 +147,7 @@
             // 
             btnDodge.AutoSize = false;
             btnDodge.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            btnDodge.BackColor = Color.LightCoral;
             btnDodge.Density = MaterialSkin.Controls.MaterialButton.MaterialButtonDensity.Default;
             btnDodge.Depth = 0;
             btnDodge.HighEmphasis = true;
@@ -162,25 +162,25 @@
             btnDodge.Text = "Dodge";
             btnDodge.Type = MaterialSkin.Controls.MaterialButton.MaterialButtonType.Contained;
             btnDodge.UseAccentColor = false;
-            btnDodge.UseVisualStyleBackColor = true;
+            btnDodge.UseVisualStyleBackColor = false;
             btnDodge.Click += btnDodge_Click;
             // 
             // Main
             // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
-            AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(982, 673);
+            AutoScaleMode = AutoScaleMode.None;
+            ClientSize = new Size(1053, 859);
             Controls.Add(btnDodge);
             Controls.Add(btnMatch);
             Controls.Add(btnInstaLock);
             Controls.Add(materialCard1);
             Controls.Add(imgCard);
-            FormBorderStyle = FormBorderStyle.FixedSingle;
+            FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "Main";
             SizeGripStyle = SizeGripStyle.Hide;
             Text = "Main Menu";
+            Load += Main_Load;
             ((System.ComponentModel.ISupportInitialize)imgCard).EndInit();
             ((System.ComponentModel.ISupportInitialize)imgRank).EndInit();
             materialCard1.ResumeLayout(false);
