@@ -2,6 +2,9 @@
 using System.Drawing;
 using System.IO;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -9,89 +12,73 @@ namespace ValorantCompanion
 {
     public static class GlobalCache
     {
-        // Folder where all cached files will be stored
-        private static readonly string CachePath = Path.Combine(Application.StartupPath, "Cache");
-
-        /// <summary>
-        /// Ensures that the cache folder exists.
-        /// </summary>
-        private static void EnsureCacheFolder()
+        public static async Task<JsonDocument> LoadJsonWithCacheAsync(string url, string cacheFolder)
         {
-            if (!Directory.Exists(CachePath))
-                Directory.CreateDirectory(CachePath);
+            string hash = GetMd5Hash(url);
+            string cachePath = Path.Combine(cacheFolder, hash + ".json");
+
+            if (File.Exists(cachePath))
+            {
+                // Load JSON from cache
+                string cachedJson = await File.ReadAllTextAsync(cachePath);
+                return JsonDocument.Parse(cachedJson);
+            }
+
+            // Download JSON and cache it
+            using var http = new HttpClient();
+            string json = await http.GetStringAsync(url);
+            await File.WriteAllTextAsync(cachePath, json);
+            return JsonDocument.Parse(json);
         }
 
-        /// <summary>
-        /// Returns a cached image if available, otherwise downloads and caches it.
-        /// </summary>
-        public static async Task<Image> GetCachedImageAsync(string url)
+        public static async Task<Image> LoadImageWithCacheAsync(string url, string cacheFolder)
         {
-            try
+            using var http = new HttpClient();
+
+            // Create a hashed filename for the URL
+            string hash = GetMd5Hash(url);
+            string cachePath = Path.Combine(cacheFolder, hash + ".png");
+
+            // If image is cached, load it directly
+            if (File.Exists(cachePath))
             {
-                EnsureCacheFolder();
-
-                // Generate a safe filename from the URL
-                string fileName = Path.GetFileName(new Uri(url).AbsolutePath);
-                string filePath = Path.Combine(CachePath, fileName);
-
-                // If already cached, load it from disk
-                if (File.Exists(filePath))
-                {
-                    using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-                    {
-                        return Image.FromStream(fs);
-                    }
-                }
-
-                // Otherwise, download and cache
-                using var http = new HttpClient();
-                var data = await http.GetByteArrayAsync(url);
-                await File.WriteAllBytesAsync(filePath, data);
-
-                using (var ms = new MemoryStream(data))
-                {
-                    return Image.FromStream(ms);
-                }
+                return Image.FromFile(cachePath);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Cache Error] Failed to load image: {ex.Message}");
-                return null;
-            }
+
+            // Otherwise, download and cache it
+            var bytes = await http.GetByteArrayAsync(url);
+            await File.WriteAllBytesAsync(cachePath, bytes);
+
+            using var ms = new MemoryStream(bytes);
+            return Image.FromStream(ms);
         }
 
-        /// <summary>
-        /// Returns cached JSON data if available, otherwise downloads and caches it.
-        /// </summary>
-        public static async Task<string> GetCachedJsonAsync(string url, string cacheFileName, int expirationDays = 7)
+        public static string GetMd5Hash(string input)
         {
-            try
-            {
-                EnsureCacheFolder();
-                string filePath = Path.Combine(CachePath, cacheFileName);
-
-                // If cache exists and is not expired, load from disk
-                if (File.Exists(filePath))
-                {
-                    var fileInfo = new FileInfo(filePath);
-                    if ((DateTime.Now - fileInfo.LastWriteTime).TotalDays < expirationDays)
-                    {
-                        return await File.ReadAllTextAsync(filePath);
-                    }
-                }
-
-                // Otherwise, download fresh data
-                using var http = new HttpClient();
-                string json = await http.GetStringAsync(url);
-
-                await File.WriteAllTextAsync(filePath, json);
-                return json;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Cache Error] Failed to load JSON: {ex.Message}");
-                return string.Empty;
-            }
+            using var md5 = MD5.Create();
+            byte[] hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
         }
+    }
+
+    public class ValorantApiResponse
+    {
+        public List<Weapon>? Data { get; set; }
+    }
+
+    public class Weapon
+    {
+        public string Uuid { get; set; }
+        public string DisplayName { get; set; }
+        public string DefaultSkinUuid { get; set; }
+        public string DisplayIcon { get; set; }
+        public List<Skin> Skins { get; set; }
+    }
+
+    public class Skin
+    {
+        public string Uuid { get; set; }
+        public string DisplayName { get; set; }
+        public string DisplayIcon { get; set; }
     }
 }

@@ -11,7 +11,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -23,8 +22,13 @@ namespace ValorantCompanion
     {
         private Initiator _initiator;
 
-        private const int AgentImageSize = 48; // Size of agent images
-        private const int BoxPadding = 3;      // Extra space above and below the image
+        private const int AgentImageSize = 48;
+        private const int BoxPadding = 3;
+
+        // Loading overlay
+        private Panel loadingPanel;
+        private MaterialProgressBar progressBar;
+        private MaterialLabel loadingLabel;
 
         public MatchDetails()
         {
@@ -32,7 +36,6 @@ namespace ValorantCompanion
 
             _initiator = GlobalClient.Initiator;
 
-            // Setup MaterialSkin
             var skinManager = MaterialSkinManager.Instance;
             skinManager.AddFormToManage(this);
             skinManager.Theme = MaterialSkinManager.Themes.DARK;
@@ -44,85 +47,187 @@ namespace ValorantCompanion
                 TextShade.WHITE
             );
 
-            // Prevent resizing
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.SizeGripStyle = SizeGripStyle.Hide;
-
-            //Stop window from resizing
-            this.FormBorderStyle = FormBorderStyle.FixedSingle; // disables resizing border
-            this.MaximizeBox = false;                            // disable maximize
-            this.MinimizeBox = false;                            // optional: set true if you want minimize
-            this.SizeGripStyle = SizeGripStyle.Hide;             // hide size grip
-
-            var fixedSize = this.Size;
-            this.MinimumSize = fixedSize;
-            this.MaximumSize = fixedSize;
-
-
             this.StartPosition = FormStartPosition.CenterScreen;
+            this.MinimumSize = this.MaximumSize = this.Size;
 
+            InitializeLoadingPanel();
             LoadPlayers();
         }
 
-        private async void LoadPlayers()
+        private void InitializeLoadingPanel()
         {
+            loadingPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(150, 0, 0, 0),
+                Visible = false
+            };
+
+            progressBar = new MaterialProgressBar
+            {
+                Width = 250,
+                Height = 6,
+                Style = ProgressBarStyle.Marquee,
+                MarqueeAnimationSpeed = 30
+            };
+
+            loadingLabel = new MaterialLabel
+            {
+                Text = "Loading...",
+                ForeColor = Color.White,
+                Font = new Font("Roboto", 11, FontStyle.Bold),
+                AutoSize = true
+            };
+
+            loadingPanel.Controls.Add(loadingLabel);
+            loadingPanel.Controls.Add(progressBar);
+            this.Controls.Add(loadingPanel);
+            loadingPanel.BringToFront();
+
+            void CenterControls()
+            {
+                progressBar.Location = new Point(
+                    (loadingPanel.ClientSize.Width - progressBar.Width) / 2,
+                    (loadingPanel.ClientSize.Height - progressBar.Height) / 2
+                );
+
+                loadingLabel.Location = new Point(
+                    (loadingPanel.ClientSize.Width - loadingLabel.Width) / 2,
+                    progressBar.Top - loadingLabel.Height - 10
+                );
+            }
+
+            CenterControls();
+            this.Resize += (s, e) => CenterControls();
+        }
+
+        private async Task<string> GetPodLocationAsync(string podId)
+        {
+            if (string.IsNullOrWhiteSpace(podId))
+                return podId;
+
             try
             {
-                // Prepare cache folder
+                using var client = new HttpClient();
+                string url = $"https://api.radiantconnect.ca/api/gamedata/pods/pod/{podId}";
+                var response = await client.GetAsync(url);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+
+                    if (doc.RootElement.TryGetProperty("data", out var dataProp) &&
+                        dataProp.TryGetProperty("pod_location", out var locProp))
+                    {
+                        return locProp.GetString() ?? podId;
+                    }
+                }
+            }
+            catch
+            {
+                // fallback to podId
+            }
+
+            return podId;
+        }
+
+
+        private async void LoadPlayers()
+        {
+            loadingPanel.Visible = true;
+            try
+            {
+                string? map = null;
+                string? server = null;
+                string? mode = null;
+                string? startingSide = null;
+
                 string cacheFolder = Path.Combine(Application.StartupPath, "cache");
-                if (!Directory.Exists(cacheFolder))
-                    Directory.CreateDirectory(cacheFolder);
+                if (!Directory.Exists(cacheFolder)) Directory.CreateDirectory(cacheFolder);
 
-                // --- STEP 1: Try to get CurrentGamePlayer ---
                 CurrentGamePlayer currentGamePlayer = null;
-                try
-                {
-                    currentGamePlayer = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGamePlayerAsync(GlobalClient.UserId);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"CurrentGame fetch failed: {ex.Message}");
-                }
-
-                // --- STEP 2: Try to get PreGamePlayer ---
                 PreGamePlayer pregamePlayer = null;
-                try
-                {
-                    pregamePlayer = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync(GlobalClient.UserId);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"PreGame fetch failed: {ex.Message}");
-                }
 
-                // --- STEP 3: Determine which data to use ---
+                try { currentGamePlayer = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGamePlayerAsync(); }
+                catch { }
+                try { pregamePlayer = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync(); }
+                catch { }
+
                 bool inCurrentGame = currentGamePlayer != null && !string.IsNullOrEmpty(currentGamePlayer.MatchId);
                 bool inPreGame = pregamePlayer != null && !string.IsNullOrEmpty(pregamePlayer.MatchId);
 
                 if (!inCurrentGame && !inPreGame)
                 {
                     Console.WriteLine("User is not in a match or pregame.");
-                    return; // Nothing to display
+                    return;
                 }
 
                 string matchId = inCurrentGame ? currentGamePlayer.MatchId : pregamePlayer.MatchId;
 
-                // --- STEP 4: Fetch full match data ---
                 List<dynamic> playersList = new List<dynamic>();
 
                 try
                 {
                     if (inCurrentGame)
                     {
-                        var globalGame = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGameMatchAsync(matchId);
+                        var globalGame = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGameMatchAsync();
                         playersList = globalGame.Players.ToList<dynamic>();
+                        map = globalGame.MapID;
+                        server = globalGame.GamePodID;
+                        mode = globalGame.ModeID;
+
+                        lblServer.Text = await GetPodLocationAsync(server);
+
+                        var userPlayer = playersList.FirstOrDefault(p => p.Subject == GlobalClient.UserId);
+                        if (userPlayer != null && userPlayer.GetType().GetProperty("TeamID") != null)
+                            startingSide = (userPlayer.TeamID == "Red") ? "Attacker" : "Defender";
                     }
                     else
                     {
-                        var globalPreGame = await _initiator.Endpoints.PreGameEndpoints.FetchPreGameMatchAsync(matchId);
+                        var globalPreGame = await _initiator.Endpoints.PreGameEndpoints.FetchPreGameMatchAsync();
                         playersList = globalPreGame.AllyTeam.Players.ToList<dynamic>();
+                        map = globalPreGame.MapID;
+                        server = globalPreGame.GamePodID;
+                        mode = globalPreGame.Mode;
+
+                        lblServer.Text = await GetPodLocationAsync(server);
+
+                        if (globalPreGame.AllyTeam != null)
+                            startingSide = (globalPreGame.AllyTeam.TeamID == "Red") ? "Attacker" : "Defender";
+                    }
+
+                    if (!string.IsNullOrEmpty(map))
+                    {
+                        try
+                        {
+                            var mapDoc = await LoadJsonWithCacheAsync("https://valorant-api.com/v1/maps", cacheFolder);
+                            var mapsArray = mapDoc.RootElement.GetProperty("data").EnumerateArray();
+                            foreach (var mapEntry in mapsArray)
+                            {
+                                var mapUrl = mapEntry.GetProperty("mapUrl").GetString();
+                                if (mapUrl == map)
+                                {
+                                    lblMapName.Text = mapEntry.GetProperty("displayName").GetString();
+                                    lblStart.Text = $"Side: {startingSide}";
+
+                                    var splashUrl = mapEntry.GetProperty("splash").GetString();
+                                    if (!string.IsNullOrEmpty(splashUrl))
+                                    {
+                                        using var client = new System.Net.WebClient();
+                                        var data = await client.DownloadDataTaskAsync(splashUrl);
+                                        using var ms = new MemoryStream(data);
+                                        imgMap.Image = Image.FromStream(ms);
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        catch { imgMap.Image = null; }
                     }
                 }
                 catch (Exception ex)
@@ -131,273 +236,191 @@ namespace ValorantCompanion
                     return;
                 }
 
-                Console.WriteLine($"Loaded {playersList.Count} players.");
-
-                // --- STEP 5: Clear old UI ---
                 flowPlayers.Controls.Clear();
 
-                // Load competitive tiers JSON once
                 var tierDoc = await LoadJsonWithCacheAsync(
                     "https://valorant-api.com/v1/competitivetiers/564d8e28-c226-3180-6285-e48a390db8b1",
                     cacheFolder
                 );
                 var tiersData = tierDoc.RootElement.GetProperty("data").GetProperty("tiers");
 
-                // --- STEP 6: Loop through players and build UI ---
                 foreach (var player in playersList)
                 {
-                    var playeruuid = player.Subject;
-
-                    // If it's PreGame, team data may not exist yet
-                    string playerteam = null;
-                    if (inCurrentGame && player.GetType().GetProperty("TeamID") != null)
-                    {
-                        playerteam = player.TeamID;
-                    }
-
-                    var playername = await RConnectMethods.GetRiotIdByPuuidAsync(_initiator, playeruuid);
-                    var playeragent = player.CharacterID;
-                    bool playerincognito = false;
-
-                    // Safely check for PlayerIdentity when in pregame
-                    if (player.GetType().GetProperty("PlayerIdentity") != null)
-                    {
-                        var identity = player.PlayerIdentity;
-                        if (identity != null && identity.GetType().GetProperty("Incognito") != null)
-                        {
-                            playerincognito = identity.Incognito;
-                        }
-                    }
-
-                    // --- Fetch MMR ---
-                    PlayerMMR playerMmr = null;
-                    try
-                    {
-                        playerMmr = await _initiator.Endpoints.PvpEndpoints.FetchPlayerMMRAsync(playeruuid);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Failed to fetch MMR for {playername}: {ex.Message}");
-                    }
-
-                    // --- Get current season ID ---
-                    string seasonId = await _initiator.FetchCurrentSeasonIdAsync();
-                    long playertier = 0;
-
-                    if (playerMmr != null &&
-                        !string.IsNullOrEmpty(seasonId) &&
-                        playerMmr.QueueSkills?.Competitive?.SeasonalInfoBySeasonID != null &&
-                        playerMmr.QueueSkills.Competitive.SeasonalInfoBySeasonID.TryGetValue(seasonId, out var seasonData) &&
-                        seasonData != null)
-                    {
-                        playertier = seasonData.CompetitiveTier ?? 0;
-                    }
-
-                    // --- Find rank icon URL ---
-                    string tierIconUrl = null;
-                    foreach (var tierEntry in tiersData.EnumerateArray())
-                    {
-                        int tierValue = tierEntry.GetProperty("tier").GetInt32();
-                        if (tierValue == playertier)
-                        {
-                            tierIconUrl = tierEntry.GetProperty("largeIcon").GetString();
-                            break;
-                        }
-                    }
-
-                    // --- Background color logic ---
-                    Color backgroundColor = Color.FromArgb(25, 25, 25); // default neutral
-                    if (inCurrentGame)
-                    {
-                        if (playerteam == "Blue")
-                            backgroundColor = Color.FromArgb(20, 20, 40);
-                        else if (playerteam == "Red")
-                            backgroundColor = Color.FromArgb(40, 20, 20);
-                    }
-
-                    // --- Layout sizes ---
-                    int panelHeight = AgentImageSize + (BoxPadding * 4);
-                    int panelWidth = AgentImageSize * 7;
-
-                    // --- Player container panel ---
-                    var playerPanel = new Panel
-                    {
-                        Width = panelWidth,
-                        Height = panelHeight,
-                        Margin = new Padding(5),
-                        BackColor = backgroundColor
-                    };
-
-                    // --- Agent Image ---
-                    var agentImage = new PictureBox
-                    {
-                        Width = AgentImageSize,
-                        Height = AgentImageSize,
-                        SizeMode = PictureBoxSizeMode.Zoom,
-                        Location = new Point(5, (panelHeight - AgentImageSize) / 2),
-                        BackColor = Color.Transparent
-                    };
-
-                    var agentImageUrl = GetAgentImageUrl(playeragent);
-                    if (!string.IsNullOrEmpty(agentImageUrl))
-                    {
-                        try
-                        {
-                            using (var client = new System.Net.WebClient())
-                            {
-                                var data = await client.DownloadDataTaskAsync(agentImageUrl);
-                                using (var ms = new MemoryStream(data))
-                                {
-                                    agentImage.Image = Image.FromStream(ms);
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            agentImage.BackColor = Color.Gray;
-                        }
-                    }
-
-                    // --- Player Name ---
-                    var nameLabel = new Label
-                    {
-                        Text = playername,
-                        AutoSize = false,
-                        ForeColor = Color.White,
-                        Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                        Location = new Point(agentImage.Right + 10, (panelHeight - 20) / 2),
-                        Width = panelWidth - AgentImageSize - 100,
-                        TextAlign = ContentAlignment.MiddleLeft
-                    };
-
-                    // --- Incognito Icon ---
-                    int incognitoSize = (int)(AgentImageSize * 0.7);
-                    var incognitoIcon = new PictureBox
-                    {
-                        Width = incognitoSize,
-                        Height = incognitoSize,
-                        SizeMode = PictureBoxSizeMode.Zoom,
-                        BackColor = Color.Transparent,
-                        Visible = playerincognito,
-                        Location = new Point(nameLabel.Right + 5, (panelHeight - incognitoSize) / 2)
-                    };
-
-                    if (playerincognito)
-                    {
-                        try
-                        {
-                            using (var client = new System.Net.WebClient())
-                            {
-                                var data = await client.DownloadDataTaskAsync(
-                                    "https://cdn.discordapp.com/attachments/861327604199587860/1413549994832822272/image.png?ex=68bc5685&is=68bb0505&hm=d1bebfc5e58660e332ce514fc6225c34fb0f1f3adfcaa429ec4dc24fe1a4e8d9&"
-                                );
-                                using (var ms = new MemoryStream(data))
-                                {
-                                    incognitoIcon.Image = Image.FromStream(ms);
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            incognitoIcon.BackColor = Color.Gray;
-                        }
-                    }
-
-                    // --- Rank Icon ---
-                    int rankSize = (int)(AgentImageSize * 0.8);
-                    var rankImage = new PictureBox
-                    {
-                        Width = rankSize,
-                        Height = rankSize,
-                        SizeMode = PictureBoxSizeMode.Zoom,
-                        Location = new Point(panelWidth - rankSize - 10, (panelHeight - rankSize) / 2),
-                        BackColor = Color.Transparent
-                    };
-
-                    if (!string.IsNullOrEmpty(tierIconUrl))
-                    {
-                        try
-                        {
-                            rankImage.Image = await LoadImageWithCacheAsync(tierIconUrl, cacheFolder);
-                        }
-                        catch
-                        {
-                            rankImage.BackColor = Color.Gray;
-                        }
-                    }
-
-                    // --- Add controls to panel ---
-                    playerPanel.Controls.Add(agentImage);
-                    playerPanel.Controls.Add(nameLabel);
-                    if (playerincognito)
-                        playerPanel.Controls.Add(incognitoIcon);
-                    playerPanel.Controls.Add(rankImage);
-
-                    // --- Add to flow layout ---
-                    flowPlayers.Controls.Add(playerPanel);
+                    await AddPlayerPanelAsync(player, inCurrentGame, inPreGame, startingSide, tiersData, cacheFolder);
                 }
             }
-            catch (Exception ex)
+            finally
             {
-                MessageBox.Show($"Unexpected error loading players: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                loadingPanel.Visible = false;
             }
         }
 
-
-
-
-        // --- Helper: Load JSON with Cache ---
-        private async Task<JsonDocument> LoadJsonWithCacheAsync(string url, string cacheFolder)
+        private async Task AddPlayerPanelAsync(dynamic player, bool inCurrentGame, bool inPreGame, string startingSide, JsonElement tiersData, string cacheFolder)
         {
-            string hash = GetMd5Hash(url);
-            string cachePath = Path.Combine(cacheFolder, hash + ".json");
+            string playerUuid = player.Subject;
+            string playerName = await RConnectMethods.GetRiotIdByPuuidAsync(_initiator, playerUuid);
+            string playerAgent = player.CharacterID;
 
-            if (File.Exists(cachePath))
+            // Incognito
+            bool playerIncognito = false;
+            if (player.GetType().GetProperty("PlayerIdentity") != null)
             {
-                string cachedJson = await File.ReadAllTextAsync(cachePath);
-                return JsonDocument.Parse(cachedJson);
+                var identity = player.PlayerIdentity;
+                if (identity != null && identity.GetType().GetProperty("Incognito") != null)
+                    playerIncognito = identity.Incognito;
             }
 
-            using var http = new HttpClient();
-            string json = await http.GetStringAsync(url);
-            await File.WriteAllTextAsync(cachePath, json);
-            return JsonDocument.Parse(json);
-        }
+            // MMR / Tier
+            PlayerMMR playerMmr = null;
+            try { playerMmr = await _initiator.Endpoints.PvpEndpoints.FetchPlayerMMRAsync(playerUuid); }
+            catch { }
 
-        // --- Helper: Load Image with Cache ---
-        private async Task<Image> LoadImageWithCacheAsync(string url, string cacheFolder)
-        {
-            string hash = GetMd5Hash(url);
-            string cachePath = Path.Combine(cacheFolder, hash + ".png");
-
-            if (File.Exists(cachePath))
+            string seasonId = await _initiator.FetchCurrentSeasonIdAsync();
+            long playerTier = 0;
+            if (playerMmr != null && !string.IsNullOrEmpty(seasonId) &&
+                playerMmr.QueueSkills?.Competitive?.SeasonalInfoBySeasonID != null &&
+                playerMmr.QueueSkills.Competitive.SeasonalInfoBySeasonID.TryGetValue(seasonId, out var seasonData) &&
+                seasonData != null)
             {
-                return Image.FromFile(cachePath);
+                playerTier = seasonData.CompetitiveTier ?? 0;
             }
 
-            using var http = new HttpClient();
-            var bytes = await http.GetByteArrayAsync(url);
-            await File.WriteAllBytesAsync(cachePath, bytes);
+            string tierIconUrl = null;
+            foreach (var tierEntry in tiersData.EnumerateArray())
+            {
+                if (tierEntry.GetProperty("tier").GetInt32() == playerTier)
+                {
+                    tierIconUrl = tierEntry.GetProperty("largeIcon").GetString();
+                    break;
+                }
+            }
 
-            using var ms = new MemoryStream(bytes);
-            return Image.FromStream(ms);
+            // Colors
+            Color backgroundColor = Color.FromArgb(25, 25, 25);
+            string effectiveTeam = inCurrentGame ? player.TeamID : (startingSide == "Attacker" ? "Red" : "Blue");
+            if (effectiveTeam == "Blue") backgroundColor = Color.FromArgb(20, 20, 40);
+            else if (effectiveTeam == "Red") backgroundColor = Color.FromArgb(40, 20, 20);
+
+            // Panel
+            int panelHeight = AgentImageSize + BoxPadding * 4;
+            int panelWidth = 400; // wide enough to fit everything
+            var playerPanel = new Panel
+            {
+                Width = panelWidth,
+                Height = panelHeight,
+                Margin = new Padding(5),
+                BackColor = backgroundColor
+            };
+
+            // Agent image
+            var agentImage = new PictureBox
+            {
+                Width = AgentImageSize,
+                Height = AgentImageSize,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Location = new Point(5, (panelHeight - AgentImageSize) / 2),
+                BackColor = Color.Transparent
+            };
+            var agentImageUrl = GetAgentImageUrl(playerAgent);
+            if (!string.IsNullOrEmpty(agentImageUrl))
+            {
+                try
+                {
+                    using var client = new System.Net.WebClient();
+                    var data = await client.DownloadDataTaskAsync(agentImageUrl);
+                    using var ms = new MemoryStream(data);
+                    agentImage.Image = Image.FromStream(ms);
+                }
+                catch { agentImage.BackColor = Color.Gray; }
+            }
+
+            // Rank icon
+            int rankSize = 32;
+            var rankImage = new PictureBox
+            {
+                Width = rankSize,
+                Height = rankSize,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Location = new Point(panelWidth - rankSize - 10, (panelHeight - rankSize) / 2),
+                BackColor = Color.Transparent
+            };
+            if (!string.IsNullOrEmpty(tierIconUrl))
+            {
+                try
+                {
+                    using var client = new System.Net.WebClient();
+                    var data = await client.DownloadDataTaskAsync(tierIconUrl);
+                    using var ms = new MemoryStream(data);
+                    rankImage.Image = Image.FromStream(ms);
+                }
+                catch { rankImage.BackColor = Color.Gray; }
+            }
+
+            // Incognito icon
+            int incognitoSize = 24;
+            var incognitoIcon = new PictureBox
+            {
+                Width = incognitoSize,
+                Height = incognitoSize,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                BackColor = Color.Transparent,
+                Visible = playerIncognito
+            };
+            if (playerIncognito)
+            {
+                incognitoIcon.Location = new Point(rankImage.Left - incognitoSize - 5, (panelHeight - incognitoSize) / 2);
+                try
+                {
+                    using var client = new System.Net.WebClient();
+                    var data = await client.DownloadDataTaskAsync("https://iili.io/KnSLXTB.png");
+                    using var ms = new MemoryStream(data);
+                    incognitoIcon.Image = Image.FromStream(ms);
+                }
+                catch { incognitoIcon.BackColor = Color.Gray; }
+            }
+
+            // Name label
+            int nameWidth = playerIncognito ? incognitoIcon.Left - agentImage.Right - 10 : rankImage.Left - agentImage.Right - 10;
+            var nameLabel = new Label
+            {
+                Text = playerName,
+                AutoSize = false,
+                Width = nameWidth,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                ForeColor = Color.White,
+                Location = new Point(agentImage.Right + 10, (panelHeight - 20) / 2),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            // Add controls
+            playerPanel.Controls.Add(agentImage);
+            playerPanel.Controls.Add(nameLabel);
+            if (playerIncognito) playerPanel.Controls.Add(incognitoIcon);
+            playerPanel.Controls.Add(rankImage);
+
+            flowPlayers.Controls.Add(playerPanel);
         }
 
-        // --- Helper: MD5 Hash ---
-        private string GetMd5Hash(string input)
-        {
-            using var md5 = MD5.Create();
-            byte[] hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-        }
-
-        // --- Helper: Agent Image URL ---
         private string GetAgentImageUrl(string agentUuid)
         {
             if (string.IsNullOrWhiteSpace(agentUuid))
                 return null;
 
             return $"https://media.valorant-api.com/agents/{agentUuid}/displayicon.png";
+        }
+
+        private async Task<JsonDocument> LoadJsonWithCacheAsync(string url, string cacheFolder)
+        {
+            string cacheFile = Path.Combine(cacheFolder, Convert.ToBase64String(Encoding.UTF8.GetBytes(url)) + ".json");
+            if (File.Exists(cacheFile))
+            {
+                return JsonDocument.Parse(await File.ReadAllTextAsync(cacheFile));
+            }
+
+            using var client = new HttpClient();
+            var json = await client.GetStringAsync(url);
+            await File.WriteAllTextAsync(cacheFile, json);
+            return JsonDocument.Parse(json);
         }
     }
 }

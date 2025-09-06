@@ -146,20 +146,19 @@ namespace ValorantCompanion
                     {
                         try
                         {
-                            var match = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync(GlobalClient.UserId);
+                            var match = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync();
                             if (match?.MatchId != null)
                             {
                                 Console.WriteLine($"[INSTALOCK] Found match: {match.MatchId}, locking agent...");
 
                                 // Parse selected agent string to enum
-                                if (Enum.TryParse<RadiantConnect.Methods.ValorantTables.Agent>(_selectedAgentUUID, out var agentEnum))
+                                if (Enum.TryParse<Agent>(_selectedAgentUUID, out var agentEnum))
                                 {
-                                    await _initiator.Endpoints.PreGameEndpoints.SelectCharacterAsync(match.MatchId, agentEnum);
-                                    await _initiator.Endpoints.PreGameEndpoints.LockCharacterAsync(match.MatchId, agentEnum);
+                                    await _initiator.Endpoints.PreGameEndpoints.SelectCharacterAsync(agentEnum);
+                                    await _initiator.Endpoints.PreGameEndpoints.LockCharacterAsync(agentEnum);
                                     Console.WriteLine("[INSTALOCK] Agent locked successfully.");
                                     locked = true;
 
-                                    // Close form on UI thread
                                     this.Invoke(Close);
                                 }
                                 else
