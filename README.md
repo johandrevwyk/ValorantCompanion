@@ -1,6 +1,6 @@
 # Valorant Companion
 
-A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms**. It provides quick access to player stats, competitive ranks, store offers, and live match information using the **RadiantConnect API**.
+A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms**. It provides quick access to player stats, competitive ranks, store offers, and live match information using the **RadiantConnect API Wrapper**.
 
 ---
 
@@ -36,7 +36,10 @@ A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms*
 
 ## Screenshots
 
-*im lazy*
+
+![alt text](https://i.imgur.com/QPEZTqj.png "")
+![alt text](https://i.imgur.com/7ahFlq9.png "")
+![alt text](https://i.imgur.com/WRFgXH7.png "")
 
 ---
 
