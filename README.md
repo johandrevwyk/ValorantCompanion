@@ -43,8 +43,3 @@ A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms*
 
 ---
 
-## Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/johandrevwyk/valorant-companion.git
