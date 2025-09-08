@@ -15,7 +15,7 @@ A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms*
 - **Dodge Pre-Game Lobby**: Leave a pre-game match before it starts.
 - **Insta Lock**: Select and lock and agent before the game starts
 > [!WARNING]
-> Riot may ban you for API use if you consistently use Insta Lock. Use at your own risk
+> Riot may ban you for API abuse if you consistently use Insta Lock. Use at your own risk
 - **Match Details**: View all players in the current or pre-game lobby, including:
   - Agent
   - Name (Including hidden)
