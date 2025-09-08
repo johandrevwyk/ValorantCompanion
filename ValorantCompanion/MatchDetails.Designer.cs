@@ -32,9 +32,9 @@
             imgMap = new PictureBox();
             lblMapName = new MaterialSkin.Controls.MaterialLabel();
             materialCard1 = new MaterialSkin.Controls.MaterialCard();
+            lblMode = new MaterialSkin.Controls.MaterialLabel();
             lblStart = new MaterialSkin.Controls.MaterialLabel();
             lblServer = new MaterialSkin.Controls.MaterialLabel();
-            lblMode = new MaterialSkin.Controls.MaterialLabel();
             ((System.ComponentModel.ISupportInitialize)imgMap).BeginInit();
             materialCard1.SuspendLayout();
             SuspendLayout();
@@ -43,7 +43,7 @@
             // 
             flowPlayers.Location = new Point(6, 80);
             flowPlayers.Name = "flowPlayers";
-            flowPlayers.Size = new Size(405, 695);
+            flowPlayers.Size = new Size(405, 858);
             flowPlayers.TabIndex = 0;
             // 
             // imgMap
@@ -72,6 +72,7 @@
             // materialCard1
             // 
             materialCard1.BackColor = Color.FromArgb(255, 255, 255);
+            materialCard1.Controls.Add(lblMode);
             materialCard1.Controls.Add(lblStart);
             materialCard1.Controls.Add(lblServer);
             materialCard1.Controls.Add(lblMapName);
@@ -83,15 +84,28 @@
             materialCard1.MouseState = MaterialSkin.MouseState.HOVER;
             materialCard1.Name = "materialCard1";
             materialCard1.Padding = new Padding(14);
-            materialCard1.Size = new Size(246, 245);
+            materialCard1.Size = new Size(246, 272);
             materialCard1.TabIndex = 7;
+            // 
+            // lblMode
+            // 
+            lblMode.BackColor = Color.Transparent;
+            lblMode.Depth = 0;
+            lblMode.Font = new Font("Roboto", 14F, FontStyle.Regular, GraphicsUnit.Pixel);
+            lblMode.Location = new Point(0, 187);
+            lblMode.MouseState = MaterialSkin.MouseState.HOVER;
+            lblMode.Name = "lblMode";
+            lblMode.Size = new Size(246, 24);
+            lblMode.TabIndex = 9;
+            lblMode.Text = "Mode";
+            lblMode.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // lblStart
             // 
             lblStart.Depth = 0;
             lblStart.Font = new Font("Roboto", 12F, FontStyle.Regular, GraphicsUnit.Pixel);
             lblStart.FontType = MaterialSkin.MaterialSkinManager.fontType.Caption;
-            lblStart.Location = new Point(18, 213);
+            lblStart.Location = new Point(17, 230);
             lblStart.MouseState = MaterialSkin.MouseState.HOVER;
             lblStart.Name = "lblStart";
             lblStart.Size = new Size(212, 19);
@@ -104,7 +118,7 @@
             lblServer.Depth = 0;
             lblServer.Font = new Font("Roboto", 12F, FontStyle.Regular, GraphicsUnit.Pixel);
             lblServer.FontType = MaterialSkin.MaterialSkinManager.fontType.Caption;
-            lblServer.Location = new Point(0, 194);
+            lblServer.Location = new Point(0, 211);
             lblServer.MouseState = MaterialSkin.MouseState.HOVER;
             lblServer.Name = "lblServer";
             lblServer.Size = new Size(246, 19);
@@ -112,26 +126,11 @@
             lblServer.Text = "Server Name";
             lblServer.TextAlign = ContentAlignment.MiddleCenter;
             // 
-            // lblMode
-            // 
-            lblMode.BackColor = Color.Transparent;
-            lblMode.Depth = 0;
-            lblMode.Font = new Font("Roboto", 14F, FontStyle.Regular, GraphicsUnit.Pixel);
-            lblMode.Location = new Point(384, 468);
-            lblMode.MouseState = MaterialSkin.MouseState.HOVER;
-            lblMode.Name = "lblMode";
-            lblMode.Size = new Size(212, 24);
-            lblMode.TabIndex = 9;
-            lblMode.Text = "Mode";
-            lblMode.TextAlign = ContentAlignment.MiddleCenter;
-            lblMode.Visible = false;
-            // 
             // MatchDetails
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(682, 799);
-            Controls.Add(lblMode);
+            ClientSize = new Size(730, 944);
             Controls.Add(materialCard1);
             Controls.Add(flowPlayers);
             FormBorderStyle = FormBorderStyle.Sizable;

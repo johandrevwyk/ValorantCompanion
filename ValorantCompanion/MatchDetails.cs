@@ -16,6 +16,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static RadiantConnect.ValorantApi.CompetitiveTiers;
+using static RadiantConnect.ValorantApi.Gamemodes;
 using static RadiantConnect.ValorantApi.Maps;
 
 namespace ValorantCompanion
@@ -178,34 +179,41 @@ namespace ValorantCompanion
                     if (inCurrentGame)
                     {
                         var globalGame = await _initiator.Endpoints.CurrentGameEndpoints.GetCurrentGameMatchAsync();
-                        playersList = globalGame.Players.ToList<dynamic>();
+                        playersList = globalGame!.Players.ToList<dynamic>();
                         map = globalGame.MapID;
                         server = globalGame.GamePodID;
-                        mode = globalGame.ModeID;
+                        mode = globalGame.MatchmakingData?.QueueID ?? "custom"; // fallback to "custom"
 
-                        Console.WriteLine(mode);
+                        if (!string.IsNullOrEmpty(mode))
+                            mode = char.ToUpper(mode[0]) + mode.Substring(1);
 
                         lblServer.Text = await GetPodLocationAsync(server);
+                        lblMode.Text = mode;
+                        Console.WriteLine(mode);
 
                         var userPlayer = playersList.FirstOrDefault(p => p.Subject == GlobalClient.UserId);
-                        if (userPlayer != null && userPlayer.GetType().GetProperty("TeamID") != null)
-                            startingSide = (userPlayer.TeamID == "Red") ? "Attacker" : "Defender";
+                        if (userPlayer != null && userPlayer!.GetType().GetProperty("TeamID") != null)
+                            startingSide = (userPlayer!.TeamID == "Red") ? "Attacker" : "Defender";
                     }
                     else
                     {
                         var globalPreGame = await _initiator.Endpoints.PreGameEndpoints.FetchPreGameMatchAsync();
-                        playersList = globalPreGame.AllyTeam.Players.ToList<dynamic>();
+                        playersList = globalPreGame!.AllyTeam.Players.ToList<dynamic>();
                         map = globalPreGame.MapID;
                         server = globalPreGame.GamePodID;
-                        mode = globalPreGame.Mode;
+                        mode = globalPreGame.QueueID ?? "custom"; // fallback to "custom"
+
+                        if (!string.IsNullOrEmpty(mode))
+                            mode = char.ToUpper(mode[0]) + mode.Substring(1);
 
                         lblServer.Text = await GetPodLocationAsync(server);
-
+                        lblMode.Text = mode;
                         Console.WriteLine(mode);
 
                         if (globalPreGame.AllyTeam != null)
                             startingSide = (globalPreGame.AllyTeam.TeamID == "Red") ? "Attacker" : "Defender";
                     }
+
 
                     if (!string.IsNullOrEmpty(map))
                     {
@@ -243,7 +251,7 @@ namespace ValorantCompanion
 
                 flowPlayers.Controls.Clear();
 
-                CompetitiveTiersData? tiers = await RadiantConnect.ValorantApi.CompetitiveTiers.GetCompetitiveTiersAsync();
+                CompetitiveTiersData? tiers = await GetCompetitiveTiersAsync();
 
                 foreach (var player in playersList)
                 {
