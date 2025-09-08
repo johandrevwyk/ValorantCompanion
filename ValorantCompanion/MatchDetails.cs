@@ -15,6 +15,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static RadiantConnect.ValorantApi.CompetitiveTiers;
 using static RadiantConnect.ValorantApi.Maps;
 
 namespace ValorantCompanion
@@ -231,6 +232,7 @@ namespace ValorantCompanion
                         {
                             imgMap.Image = null;
                         }
+
                     }
                 }
                 catch (Exception ex)
@@ -241,15 +243,11 @@ namespace ValorantCompanion
 
                 flowPlayers.Controls.Clear();
 
-                var tierDoc = await LoadJsonWithCacheAsync(
-                    "https://valorant-api.com/v1/competitivetiers/564d8e28-c226-3180-6285-e48a390db8b1",
-                    cacheFolder
-                );
-                var tiersData = tierDoc.RootElement.GetProperty("data").GetProperty("tiers");
+                CompetitiveTiersData? tiers = await RadiantConnect.ValorantApi.CompetitiveTiers.GetCompetitiveTiersAsync();
 
                 foreach (var player in playersList)
                 {
-                    await AddPlayerPanelAsync(player, inCurrentGame, inPreGame, startingSide, tiersData, cacheFolder);
+                    await AddPlayerPanelAsync(player, inCurrentGame, inPreGame, startingSide, tiers, cacheFolder);
                 }
             }
             finally
@@ -258,7 +256,7 @@ namespace ValorantCompanion
             }
         }
 
-        private async Task AddPlayerPanelAsync(dynamic player, bool inCurrentGame, bool inPreGame, string startingSide, JsonElement tiersData, string cacheFolder)
+        private async Task AddPlayerPanelAsync(dynamic player, bool inCurrentGame, bool inPreGame, string startingSide, CompetitiveTiersData tiersData, string cacheFolder)
         {
             string playerUuid = player.Subject;
             string playerName = await RConnectMethods.GetRiotIdByPuuidAsync(_initiator, playerUuid);
@@ -288,13 +286,21 @@ namespace ValorantCompanion
                 playerTier = seasonData.CompetitiveTier ?? 0;
             }
 
+            // --- RadiantConnect tier lookup ---
             string tierIconUrl = null;
-            foreach (var tierEntry in tiersData.EnumerateArray())
+            if (tiersData?.Data != null)
             {
-                if (tierEntry.GetProperty("tier").GetInt32() == playerTier)
+                foreach (var compDatum in tiersData.Data)
                 {
-                    tierIconUrl = tierEntry.GetProperty("largeIcon").GetString();
-                    break;
+                    if (compDatum.Tiers != null)
+                    {
+                        var matchingTier = compDatum.Tiers.FirstOrDefault(t => t.Tier == (int)playerTier);
+                        if (matchingTier != null)
+                        {
+                            tierIconUrl = matchingTier.LargeIcon;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -315,7 +321,7 @@ namespace ValorantCompanion
                 BackColor = backgroundColor
             };
 
-            // Agent image
+            // --- Agent image ---
             var agentImage = new PictureBox
             {
                 Width = AgentImageSize,
@@ -324,17 +330,30 @@ namespace ValorantCompanion
                 Location = new Point(5, (panelHeight - AgentImageSize) / 2),
                 BackColor = Color.Transparent
             };
-            var agentImageUrl = GetAgentImageUrl(playerAgent);
-            if (!string.IsNullOrEmpty(agentImageUrl))
+
+            if (!string.IsNullOrEmpty(playerAgent))
             {
                 try
                 {
-                    using var client = new System.Net.WebClient();
-                    var data = await client.DownloadDataTaskAsync(agentImageUrl);
-                    using var ms = new MemoryStream(data);
-                    agentImage.Image = Image.FromStream(ms);
+                    RadiantConnect.ValorantApi.Agents.Agent agentData = await RadiantConnect.ValorantApi.Agents.GetAgentAsync(playerAgent);
+                    string agentImageUrl = agentData?.Data?.DisplayIcon ?? agentData?.Data?.DisplayIconSmall;
+
+                    if (!string.IsNullOrEmpty(agentImageUrl))
+                    {
+                        using var client = new System.Net.WebClient();
+                        var data = await client.DownloadDataTaskAsync(agentImageUrl);
+                        using var ms = new MemoryStream(data);
+                        agentImage.Image = Image.FromStream(ms);
+                    }
+                    else
+                    {
+                        agentImage.BackColor = Color.Gray; 
+                    }
                 }
-                catch { agentImage.BackColor = Color.Gray; }
+                catch
+                {
+                    agentImage.BackColor = Color.Gray;
+                }
             }
 
             // Rank icon
@@ -402,14 +421,6 @@ namespace ValorantCompanion
             playerPanel.Controls.Add(rankImage);
 
             flowPlayers.Controls.Add(playerPanel);
-        }
-
-        private string GetAgentImageUrl(string agentUuid)
-        {
-            if (string.IsNullOrWhiteSpace(agentUuid))
-                return null;
-
-            return $"https://media.valorant-api.com/agents/{agentUuid}/displayicon.png";
         }
 
         private async Task<JsonDocument> LoadJsonWithCacheAsync(string url, string cacheFolder)
