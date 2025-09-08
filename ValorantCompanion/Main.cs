@@ -13,9 +13,13 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static RadiantConnect.ValorantApi.CompetitiveTiers;
+using static RadiantConnect.ValorantApi.PlayerCards;
+using static RadiantConnect.ValorantApi.Weapons;
 
 namespace ValorantCompanion
 {
+
     public partial class Main : MaterialForm
     {
         private Initiator _initiator;
@@ -66,6 +70,12 @@ namespace ValorantCompanion
             materialCard1.Size = fixedSize2;
             materialCard1.Resize += (s, e) => materialCard1.Size = fixedSize2;
             materialCard1.Move += (s, e) => materialCard1.Location = fixedLocation;
+
+            btnDodge.Paint += (s, e) =>
+            {
+                e.Graphics.FillRectangle(Brushes.Red, btnDodge.ClientRectangle);
+            };
+
         }
 
         private void InitializeLoadingPanel()
@@ -149,59 +159,56 @@ namespace ValorantCompanion
                     this.Invoke(() => lblPlayerName.Text = $"{playername}");
 
                     // --- Competitive Tier ---
-                    var tierDoc = await GlobalCache.LoadJsonWithCacheAsync(
-                        "https://valorant-api.com/v1/competitivetiers/564d8e28-c226-3180-6285-e48a390db8b1",
-                        cacheFolder
-                    );
-                    var tiersData = tierDoc.RootElement.GetProperty("data").GetProperty("tiers");
+                    CompetitiveTiersData? tiersData = await GetCompetitiveTiersAsync();
 
-                    int playerTier = (int)playerranktier;
-                    string tierIconUrl = null;
-
-                    foreach (var tierEntry in tiersData.EnumerateArray())
+                    if (tiersData?.Data != null)
                     {
-                        if (tierEntry.GetProperty("tier").GetInt32() == playerTier)
+
+                        var allTiers = tiersData.Data
+                            .SelectMany(d => d.Tiers)   
+                            .ToList();
+
+                        var playerTierEntry = allTiers.FirstOrDefault(t => t.Tier == playerranktier);
+
+                        if (playerTierEntry != null)
                         {
-                            tierIconUrl = tierEntry.GetProperty("largeIcon").GetString();
-                            break;
+                            string tierIconUrl = playerTierEntry.LargeIcon;
+
+                            if (!string.IsNullOrEmpty(tierIconUrl))
+                            {
+                                var tierImage = await GlobalCache.LoadImageWithCacheAsync(tierIconUrl, cacheFolder);
+                                this.Invoke(() => imgRank.Image = tierImage);
+                            }
                         }
                     }
 
-                    if (!string.IsNullOrEmpty(tierIconUrl))
-                    {
-                        var tierImage = await GlobalCache.LoadImageWithCacheAsync(tierIconUrl, cacheFolder);
-                        this.Invoke(() => imgRank.Image = tierImage);
-                    }
 
                     // --- Player Card ---
-                    var cardDoc = await GlobalCache.LoadJsonWithCacheAsync("https://valorant-api.com/v1/playercards", cacheFolder);
-                    var cardsData = cardDoc.RootElement.GetProperty("data");
+                    PlayerCardsData? playerCardsData = await GetPlayerCardsAsync();
 
-                    string cardUrl = null;
-                    foreach (var card in cardsData.EnumerateArray())
+                    if (playerCardsData?.Data != null)
                     {
-                        string uuid = card.GetProperty("uuid").GetString();
-                        if (uuid == playerCardUuid)
+                        var playerCardEntry = playerCardsData.Data.FirstOrDefault(c => c.Uuid == playerCardUuid);
+
+                        if (playerCardEntry != null)
                         {
-                            cardUrl = card.GetProperty("largeArt").GetString();
-                            break;
-                        }
-                    }
+                            string cardUrl = playerCardEntry.LargeArt;
 
-                    if (!string.IsNullOrEmpty(cardUrl))
-                    {
-                        var cardImage = await GlobalCache.LoadImageWithCacheAsync(cardUrl, cacheFolder);
-                        this.Invoke(() => imgCard.Image = cardImage);
+                            if (!string.IsNullOrEmpty(cardUrl))
+                            {
+                                var cardImage = await GlobalCache.LoadImageWithCacheAsync(cardUrl, cacheFolder);
+                                this.Invoke(() => imgCard.Image = cardImage);
+                            }
+                        }
                     }
 
                     // --- Storefront & Skins ---
                     Storefront? storefront = await _initiator.Endpoints.StoreEndpoints.FetchStorefrontAsync();
-                    var singleItemOffers = storefront.SkinsPanelLayout?.SingleItemStoreOffers;
+                    var singleItemOffers = storefront!.SkinsPanelLayout?.SingleItemStoreOffers;
 
                     if (singleItemOffers != null)
                     {
-                        var weaponsDoc = await GlobalCache.LoadJsonWithCacheAsync("https://valorant-api.com/v1/weapons", cacheFolder);
-                        var weaponsData = weaponsDoc.RootElement.GetProperty("data");
+                        WeaponsData? weaponsData = await GetWeaponsAsync();
 
                         MaterialLabel[] lblShops = { lblShop1, lblShop2, lblShop3, lblShop4 };
                         MaterialLabel[] lblPrices = { lblShopPrice1, lblShopPrice2, lblShopPrice3, lblShopPrice4 };
@@ -214,33 +221,27 @@ namespace ValorantCompanion
                             long? valorantPoints = offer.Cost?.ValorantPoints;
                             if (itemId == null || valorantPoints == null) continue;
 
-                            bool found = false;
-                            JsonElement matchedLevel = new JsonElement();
-                            JsonElement parentSkin = new JsonElement();
+                            SkinLevelDatum? matchedLevel = null;
+                            SkinDatum? parentSkin = null;
 
-                            foreach (var weapon in weaponsData.EnumerateArray())
+                            foreach (var weapon in weaponsData.Data)
                             {
-                                foreach (var skin in weapon.GetProperty("skins").EnumerateArray())
+                                foreach (var skin in weapon.Skins)
                                 {
-                                    foreach (var level in skin.GetProperty("levels").EnumerateArray())
+                                    matchedLevel = skin.Levels.FirstOrDefault(l => l.Uuid == itemId);
+                                    if (matchedLevel != null)
                                     {
-                                        if (level.GetProperty("uuid").GetString() == itemId)
-                                        {
-                                            matchedLevel = level;
-                                            parentSkin = skin;
-                                            found = true;
-                                            break;
-                                        }
+                                        parentSkin = skin;
+                                        break;
                                     }
-                                    if (found) break;
                                 }
-                                if (found) break;
+                                if (matchedLevel != null) break;
                             }
 
-                            if (!found) continue;
+                            if (matchedLevel == null || parentSkin == null) continue;
 
-                            string displayName = parentSkin.GetProperty("displayName").GetString() ?? "";
-                            string displayIcon = matchedLevel.GetProperty("displayIcon").GetString() ?? "";
+                            string displayName = parentSkin.DisplayName;
+                            string displayIcon = matchedLevel.DisplayIcon;
 
                             Image? loadedImage = null;
                             if (!string.IsNullOrEmpty(displayIcon))
@@ -257,6 +258,7 @@ namespace ValorantCompanion
                             i++;
                         }
                     }
+
                 }
             }
             catch (Exception ex)
@@ -345,11 +347,5 @@ namespace ValorantCompanion
                 MessageBox.Show($"Failed to leave lobby: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-        private void Main_Load(object sender, EventArgs e) { }
-        private void pictureBox3_Click(object sender, EventArgs e) { }
-        private void materialCard1_Paint(object sender, PaintEventArgs e) { }
-        private void lblShopPrice1_Click(object sender, EventArgs e) { }
-        private void materialCard2_Paint(object sender, PaintEventArgs e) { }
     }
 }

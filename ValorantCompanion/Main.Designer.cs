@@ -196,7 +196,6 @@
             materialCard2.Padding = new Padding(14);
             materialCard2.Size = new Size(1059, 134);
             materialCard2.TabIndex = 8;
-            materialCard2.Paint += materialCard2_Paint;
             // 
             // lblShopPrice4
             // 
@@ -249,7 +248,6 @@
             lblShopPrice1.TabIndex = 7;
             lblShopPrice1.Text = "Price";
             lblShopPrice1.TextAlign = ContentAlignment.MiddleCenter;
-            lblShopPrice1.Click += lblShopPrice1_Click;
             // 
             // lblShop3
             // 
@@ -316,7 +314,6 @@
             imgShop4.SizeMode = PictureBoxSizeMode.StretchImage;
             imgShop4.TabIndex = 2;
             imgShop4.TabStop = false;
-            imgShop4.Click += pictureBox3_Click;
             // 
             // imgShop3
             // 
@@ -368,7 +365,6 @@
             Name = "Main";
             SizeGripStyle = SizeGripStyle.Hide;
             Text = "Main Menu";
-            Load += Main_Load;
             ((System.ComponentModel.ISupportInitialize)imgCard).EndInit();
             ((System.ComponentModel.ISupportInitialize)imgRank).EndInit();
             materialCard1.ResumeLayout(false);

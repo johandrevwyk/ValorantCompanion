@@ -13,6 +13,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static RadiantConnect.Methods.ValorantTables;
+using static RadiantConnect.ValorantApi.Agents;
 
 namespace ValorantCompanion
 {
@@ -102,7 +103,6 @@ namespace ValorantCompanion
                 flowAgent.Visible = false;
                 btnConfirm.Hide();
 
-                // Waiting panel
                 var waitingPanel = new Panel
                 {
                     Dock = DockStyle.Fill,
@@ -126,7 +126,6 @@ namespace ValorantCompanion
                     waitingPanel.Controls.Add(pic);
                 }
 
-                // Waiting label
                 var lblWaiting = new Label
                 {
                     Text = "Waiting for game to start",
@@ -151,8 +150,18 @@ namespace ValorantCompanion
                             {
                                 Console.WriteLine($"[INSTALOCK] Found match: {match.MatchId}, locking agent...");
 
-                                // Parse selected agent string to enum
-                                if (Enum.TryParse<Agent>(_selectedAgentUUID, out var agentEnum))
+                                // Get the agent data from UUID
+                                RadiantConnect.ValorantApi.Agents.Agent? agentData = await GetAgentAsync(_selectedAgentUUID);
+                                if (agentData == null)
+                                {
+                                    Console.WriteLine("[INSTALOCK] Could not fetch agent data.");
+                                    continue;
+                                }
+
+                                // Map display name (or developer name) to enum
+                                if (Enum.TryParse<RadiantConnect.Methods.ValorantTables.Agent>(
+                                        agentData.Data.DisplayName.Replace(" ", ""),
+                                        out var agentEnum))
                                 {
                                     await _initiator.Endpoints.PreGameEndpoints.SelectCharacterAsync(agentEnum);
                                     await _initiator.Endpoints.PreGameEndpoints.LockCharacterAsync(agentEnum);
@@ -163,17 +172,17 @@ namespace ValorantCompanion
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"[INSTALOCK] Could not parse '{_selectedAgentUUID}' to RadiantConnect.Methods.ValorantTables.Agent enum.");
+                                    Console.WriteLine($"[INSTALOCK] Could not map '{agentData.Data.DisplayName}' to Agent enum.");
                                 }
                             }
                         }
                         catch
                         {
-                            // Ignore errors (match not available yet)
+                            
                         }
 
                         if (!locked)
-                            await Task.Delay(2000); // Retry after 2 seconds
+                            await Task.Delay(2000); 
                     }
                 }
                 catch (Exception ex)
@@ -182,43 +191,32 @@ namespace ValorantCompanion
                 }
             };
 
+
             Controls.Add(btnConfirm);
             flowAgent.BringToFront();
         }
 
-        private async Task<string> GetAgentsJsonAsync()
-        {
-            if (!Directory.Exists(_cacheFolder))
-                Directory.CreateDirectory(_cacheFolder);
-
-            if (File.Exists(_agentsJsonFile))
-                return await File.ReadAllTextAsync(_agentsJsonFile);
-
-            using var http = new HttpClient();
-            string json = await http.GetStringAsync("https://valorant-api.com/v1/agents");
-            await File.WriteAllTextAsync(_agentsJsonFile, json);
-            return json;
-        }
 
         private async Task LoadAgentsAsync()
         {
             try
             {
-                using var http = new HttpClient();
-                string json = await GetAgentsJsonAsync();
-                var jsonDoc = JsonDocument.Parse(json);
-                var agents = jsonDoc.RootElement.GetProperty("data")
-                    .EnumerateArray()
-                    .Where(a => a.GetProperty("isPlayableCharacter").GetBoolean());
+                AgentsData? agentsData = await GetAgentsAsync();
+
+                if (agentsData?.Data == null) return;
+
+                var playableAgents = agentsData.Data
+                    .Where(a => a.IsPlayableCharacter == true)
+                    .ToList();
 
                 flowAgent.Controls.Clear();
                 var tasks = new List<Task>();
 
-                foreach (var agent in agents)
+                foreach (var agent in playableAgents)
                 {
-                    string uuid = agent.GetProperty("uuid").GetString();
-                    string name = agent.GetProperty("displayName").GetString();
-                    string iconUrl = agent.GetProperty("displayIcon").GetString();
+                    string uuid = agent.Uuid;
+                    string name = agent.DisplayName;
+                    string iconUrl = agent.DisplayIcon;
 
                     var panel = new Panel
                     {
@@ -234,7 +232,7 @@ namespace ValorantCompanion
                         Height = 80,
                         SizeMode = PictureBoxSizeMode.Zoom,
                         Cursor = Cursors.Hand,
-                        Tag = name
+                        Tag = uuid
                     };
 
                     var radio = new RadioButton
@@ -246,7 +244,7 @@ namespace ValorantCompanion
                         Appearance = Appearance.Button,
                         FlatStyle = FlatStyle.Flat,
                         ForeColor = Color.White,
-                        Tag = name,
+                        Tag = uuid,
                         Top = 85
                     };
 
@@ -254,34 +252,38 @@ namespace ValorantCompanion
                     radio.CheckedChanged += (s, e) =>
                     {
                         if (radio.Checked)
-                            _selectedAgentUUID = name;
+                            _selectedAgentUUID = uuid; 
                     };
 
                     panel.Controls.Add(pic);
                     panel.Controls.Add(radio);
                     flowAgent.Controls.Add(panel);
 
-                    // Load images async
                     tasks.Add(Task.Run(async () =>
                     {
                         try
                         {
                             Image img;
-                            if (_imageCache.ContainsKey(name))
-                                img = _imageCache[name];
+                            if (_imageCache.ContainsKey(uuid))
+                            {
+                                img = _imageCache[uuid];
+                            }
                             else
                             {
                                 string cachedFile = Path.Combine(_cacheFolder, $"{uuid}.png");
                                 if (File.Exists(cachedFile))
+                                {
                                     img = Image.FromFile(cachedFile);
+                                }
                                 else
                                 {
+                                    using var http = new HttpClient();
                                     using var stream = await http.GetStreamAsync(iconUrl);
                                     img = Image.FromStream(stream);
                                     img.Save(cachedFile);
                                 }
 
-                                _imageCache[name] = img;
+                                _imageCache[uuid] = img;
                             }
 
                             pic.Invoke((Action)(() => pic.Image = img));
@@ -297,5 +299,6 @@ namespace ValorantCompanion
                 MessageBox.Show($"Failed to load agents: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
     }
 }

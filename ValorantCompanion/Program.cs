@@ -27,7 +27,7 @@ namespace ValorantCompanion
         {
 
             // Allocate a console for debugging
-            //AllocConsole();
+            AllocConsole();
             Console.WriteLine("Global debug console initialized.");
 
             Application.EnableVisualStyles();

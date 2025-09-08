@@ -15,6 +15,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static RadiantConnect.ValorantApi.Maps;
 
 namespace ValorantCompanion
 {
@@ -181,6 +182,8 @@ namespace ValorantCompanion
                         server = globalGame.GamePodID;
                         mode = globalGame.ModeID;
 
+                        Console.WriteLine(mode);
+
                         lblServer.Text = await GetPodLocationAsync(server);
 
                         var userPlayer = playersList.FirstOrDefault(p => p.Subject == GlobalClient.UserId);
@@ -197,6 +200,8 @@ namespace ValorantCompanion
 
                         lblServer.Text = await GetPodLocationAsync(server);
 
+                        Console.WriteLine(mode);
+
                         if (globalPreGame.AllyTeam != null)
                             startingSide = (globalPreGame.AllyTeam.TeamID == "Red") ? "Attacker" : "Defender";
                     }
@@ -205,29 +210,27 @@ namespace ValorantCompanion
                     {
                         try
                         {
-                            var mapDoc = await LoadJsonWithCacheAsync("https://valorant-api.com/v1/maps", cacheFolder);
-                            var mapsArray = mapDoc.RootElement.GetProperty("data").EnumerateArray();
-                            foreach (var mapEntry in mapsArray)
-                            {
-                                var mapUrl = mapEntry.GetProperty("mapUrl").GetString();
-                                if (mapUrl == map)
-                                {
-                                    lblMapName.Text = mapEntry.GetProperty("displayName").GetString();
-                                    lblStart.Text = $"Side: {startingSide}";
+                            MapsData? mapsData = await GetMapsAsync();
+                            if (mapsData?.Data == null) return;
 
-                                    var splashUrl = mapEntry.GetProperty("splash").GetString();
-                                    if (!string.IsNullOrEmpty(splashUrl))
-                                    {
-                                        using var client = new System.Net.WebClient();
-                                        var data = await client.DownloadDataTaskAsync(splashUrl);
-                                        using var ms = new MemoryStream(data);
-                                        imgMap.Image = Image.FromStream(ms);
-                                    }
-                                    break;
-                                }
+                            var mapDatum = mapsData.Data.FirstOrDefault(m => m.MapUrl == map);
+                            if (mapDatum == null) return;
+
+                            lblMapName.Text = mapDatum.DisplayName;
+                            lblStart.Text = $"Side: {startingSide}";
+
+                            var splashUrl = mapDatum.Splash;
+                            if (!string.IsNullOrEmpty(splashUrl))
+                            {
+                                using var client = new System.Net.Http.HttpClient();
+                                using var stream = await client.GetStreamAsync(splashUrl);
+                                imgMap.Image = Image.FromStream(stream);
                             }
                         }
-                        catch { imgMap.Image = null; }
+                        catch
+                        {
+                            imgMap.Image = null;
+                        }
                     }
                 }
                 catch (Exception ex)
