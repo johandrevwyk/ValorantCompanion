@@ -170,7 +170,7 @@ namespace ValorantCompanion
                     return;
                 }
 
-                string matchId = inCurrentGame ? currentGamePlayer.MatchId : pregamePlayer.MatchId;
+                string matchId = inCurrentGame ? currentGamePlayer!.MatchId : pregamePlayer!.MatchId;
 
                 List<dynamic> playersList = new List<dynamic>();
 
@@ -275,42 +275,30 @@ namespace ValorantCompanion
             if (player.GetType().GetProperty("PlayerIdentity") != null)
             {
                 var identity = player.PlayerIdentity;
-                if (identity != null && identity.GetType().GetProperty("Incognito") != null)
-                    playerIncognito = identity.Incognito;
+                if (identity != null && identity!.GetType().GetProperty("Incognito") != null)
+                    playerIncognito = identity!.Incognito;
             }
 
-            // MMR / Tier
+            // --- MMR / Tier ---
             PlayerMMR playerMmr = null;
-            try { playerMmr = await _initiator.Endpoints.PvpEndpoints.FetchPlayerMMRAsync(playerUuid); }
-            catch { }
+            try
+            {
+                playerMmr = await _initiator.Endpoints.PvpEndpoints.FetchPlayerMMRAsync(playerUuid);
+            }
+            catch
+            {
+                // ignore errors for now
+            }
 
-            string seasonId = await _initiator.FetchCurrentSeasonIdAsync();
+            // Get competitive tier from latest update, default to 0 if null
             long playerTier = 0;
-            if (playerMmr != null && !string.IsNullOrEmpty(seasonId) &&
-                playerMmr.QueueSkills?.Competitive?.SeasonalInfoBySeasonID != null &&
-                playerMmr.QueueSkills.Competitive.SeasonalInfoBySeasonID.TryGetValue(seasonId, out var seasonData) &&
-                seasonData != null)
+
+            if (playerMmr?.LatestCompetitiveUpdate != null)
             {
-                playerTier = seasonData.CompetitiveTier ?? 0;
+                playerTier = playerMmr.LatestCompetitiveUpdate.TierAfterUpdate ?? 0;
             }
 
-            // --- RadiantConnect tier lookup ---
-            string tierIconUrl = null;
-            if (tiersData?.Data != null)
-            {
-                foreach (var compDatum in tiersData.Data)
-                {
-                    if (compDatum.Tiers != null)
-                    {
-                        var matchingTier = compDatum.Tiers.FirstOrDefault(t => t.Tier == (int)playerTier);
-                        if (matchingTier != null)
-                        {
-                            tierIconUrl = matchingTier.LargeIcon;
-                            break;
-                        }
-                    }
-                }
-            }
+            var tierIcon = await ImageHelper.GetTierImageAsync(playerTier, tiersData);
 
             // Colors
             Color backgroundColor = Color.FromArgb(25, 25, 25);
@@ -343,20 +331,11 @@ namespace ValorantCompanion
             {
                 try
                 {
-                    RadiantConnect.ValorantApi.Agents.Agent agentData = await RadiantConnect.ValorantApi.Agents.GetAgentAsync(playerAgent);
-                    string agentImageUrl = agentData?.Data?.DisplayIcon ?? agentData?.Data?.DisplayIconSmall;
-
-                    if (!string.IsNullOrEmpty(agentImageUrl))
-                    {
-                        using var client = new System.Net.WebClient();
-                        var data = await client.DownloadDataTaskAsync(agentImageUrl);
-                        using var ms = new MemoryStream(data);
-                        agentImage.Image = Image.FromStream(ms);
-                    }
+                    Image? img = await ImageHelper.GetAgentImageAsync(playerAgent);
+                    if (img != null)
+                        agentImage.Image = img;
                     else
-                    {
-                        agentImage.BackColor = Color.Gray; 
-                    }
+                        agentImage.BackColor = Color.Gray;
                 }
                 catch
                 {
@@ -374,14 +353,11 @@ namespace ValorantCompanion
                 Location = new Point(panelWidth - rankSize - 10, (panelHeight - rankSize) / 2),
                 BackColor = Color.Transparent
             };
-            if (!string.IsNullOrEmpty(tierIconUrl))
+            if (tierIcon != null)
             {
                 try
                 {
-                    using var client = new System.Net.WebClient();
-                    var data = await client.DownloadDataTaskAsync(tierIconUrl);
-                    using var ms = new MemoryStream(data);
-                    rankImage.Image = Image.FromStream(ms);
+                    rankImage.Image = tierIcon;
                 }
                 catch { rankImage.BackColor = Color.Gray; }
             }
@@ -429,20 +405,6 @@ namespace ValorantCompanion
             playerPanel.Controls.Add(rankImage);
 
             flowPlayers.Controls.Add(playerPanel);
-        }
-
-        private async Task<JsonDocument> LoadJsonWithCacheAsync(string url, string cacheFolder)
-        {
-            string cacheFile = Path.Combine(cacheFolder, Convert.ToBase64String(Encoding.UTF8.GetBytes(url)) + ".json");
-            if (File.Exists(cacheFile))
-            {
-                return JsonDocument.Parse(await File.ReadAllTextAsync(cacheFile));
-            }
-
-            using var client = new HttpClient();
-            var json = await client.GetStringAsync(url);
-            await File.WriteAllTextAsync(cacheFile, json);
-            return JsonDocument.Parse(json);
         }
     }
 }

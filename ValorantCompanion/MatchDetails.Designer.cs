@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MatchDetails));
             flowPlayers = new FlowLayoutPanel();
             imgMap = new PictureBox();
             lblMapName = new MaterialSkin.Controls.MaterialLabel();
@@ -130,10 +131,11 @@
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(730, 944);
+            ClientSize = new Size(746, 983);
             Controls.Add(materialCard1);
             Controls.Add(flowPlayers);
             FormBorderStyle = FormBorderStyle.Sizable;
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "MatchDetails";

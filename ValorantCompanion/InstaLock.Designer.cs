@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(InstaLock));
             flowAgent = new FlowLayoutPanel();
             SuspendLayout();
             // 
@@ -37,16 +38,17 @@
             flowAgent.Dock = DockStyle.Fill;
             flowAgent.Location = new Point(3, 64);
             flowAgent.Name = "flowAgent";
-            flowAgent.Size = new Size(1067, 626);
+            flowAgent.Size = new Size(1083, 665);
             flowAgent.TabIndex = 0;
             // 
             // InstaLock
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1073, 693);
+            ClientSize = new Size(1089, 732);
             Controls.Add(flowAgent);
             FormBorderStyle = FormBorderStyle.FixedSingle;
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "InstaLock";

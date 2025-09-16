@@ -7,9 +7,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Reflection;
-using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static RadiantConnect.Methods.ValorantTables;
@@ -20,12 +17,12 @@ namespace ValorantCompanion
     public partial class InstaLock : MaterialForm
     {
         private Initiator _initiator;
-        private string _selectedAgentUUID = null; // Stores display name
+        private string _selectedAgentUUID = null;
         private FlowLayoutPanel flowAgent;
+        private SocketManager _socketManager;
+        private bool _confirmClicked = false;
 
-        // Simple in-memory cache for images
         private readonly Dictionary<string, Image> _imageCache = new Dictionary<string, Image>();
-
         private readonly string _cacheFolder = Path.Combine(Application.StartupPath, "cache");
         private readonly string _agentsJsonFile;
 
@@ -35,7 +32,6 @@ namespace ValorantCompanion
 
             _initiator = GlobalClient.Initiator;
 
-            // Setup MaterialSkin
             var skinManager = MaterialSkinManager.Instance;
             skinManager.AddFormToManage(this);
             skinManager.Theme = MaterialSkinManager.Themes.DARK;
@@ -51,18 +47,9 @@ namespace ValorantCompanion
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.SizeGripStyle = SizeGripStyle.Hide;
-
-            //Stop window from resizing
-            this.FormBorderStyle = FormBorderStyle.FixedSingle; // disables resizing border
-            this.MaximizeBox = false;                            // disable maximize
-            this.MinimizeBox = false;                            // optional: set true if you want minimize
-            this.SizeGripStyle = SizeGripStyle.Hide;             // hide size grip
-
             var fixedSize = this.Size;
             this.MinimumSize = fixedSize;
             this.MaximumSize = fixedSize;
-
-
             this.StartPosition = FormStartPosition.CenterScreen;
 
             _agentsJsonFile = Path.Combine(_cacheFolder, "agents.json");
@@ -73,7 +60,6 @@ namespace ValorantCompanion
 
         private void InitializeLayout()
         {
-            // Flow panel for agents
             flowAgent = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -84,7 +70,6 @@ namespace ValorantCompanion
             };
             Controls.Add(flowAgent);
 
-            // Confirm button
             var btnConfirm = new MaterialButton
             {
                 Text = "Confirm Selection",
@@ -100,6 +85,8 @@ namespace ValorantCompanion
                     return;
                 }
 
+                _confirmClicked = true;
+
                 flowAgent.Visible = false;
                 btnConfirm.Hide();
 
@@ -111,7 +98,6 @@ namespace ValorantCompanion
                 Controls.Add(waitingPanel);
                 waitingPanel.BringToFront();
 
-                // Agent image
                 if (_imageCache.ContainsKey(_selectedAgentUUID))
                 {
                     var pic = new PictureBox
@@ -137,76 +123,110 @@ namespace ValorantCompanion
                 };
                 waitingPanel.Controls.Add(lblWaiting);
 
-                try
-                {
-                    bool locked = false;
+                await StartInstalockLoop();
 
-                    while (!locked)
-                    {
-                        try
-                        {
-                            var match = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync();
-                            if (match?.MatchId != null)
-                            {
-                                Console.WriteLine($"[INSTALOCK] Found match: {match.MatchId}, locking agent...");
-
-                                // Get the agent data from UUID
-                                RadiantConnect.ValorantApi.Agents.Agent? agentData = await GetAgentAsync(_selectedAgentUUID);
-                                if (agentData == null)
-                                {
-                                    Console.WriteLine("[INSTALOCK] Could not fetch agent data.");
-                                    continue;
-                                }
-
-                                // Map display name (or developer name) to enum
-                                if (Enum.TryParse<RadiantConnect.Methods.ValorantTables.Agent>(
-                                        agentData.Data.DisplayName.Replace(" ", ""),
-                                        out var agentEnum))
-                                {
-                                    await _initiator.Endpoints.PreGameEndpoints.SelectCharacterAsync(agentEnum);
-                                    await _initiator.Endpoints.PreGameEndpoints.LockCharacterAsync(agentEnum);
-                                    Console.WriteLine("[INSTALOCK] Agent locked successfully.");
-                                    locked = true;
-
-                                    this.Invoke(Close);
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"[INSTALOCK] Could not map '{agentData.Data.DisplayName}' to Agent enum.");
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            
-                        }
-
-                        if (!locked)
-                            await Task.Delay(2000); 
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Failed to lock agent: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                if (_socketManager == null)
+                    InitializeSocketListener();
             };
-
 
             Controls.Add(btnConfirm);
             flowAgent.BringToFront();
         }
 
+        private async Task StartInstalockLoop()
+        {
+            try
+            {
+                while (_confirmClicked)
+                {
+                    try
+                    {
+                        var match = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync();
+                        if (match?.MatchId != null)
+                        {
+                            Console.WriteLine($"[INSTALOCK] Found match: {match.MatchId}, locking agent...");
+
+                            Agents.Agent? agentData = await GetAgentAsync(_selectedAgentUUID);
+                            if (agentData == null) continue;
+
+                            if (Enum.TryParse<RadiantConnect.Methods.ValorantTables.Agent>(
+                                    agentData.Data!.DisplayName.Replace(" ", ""),
+                                    out var agentEnum))
+                            {
+                                await _initiator.Endpoints.PreGameEndpoints.SelectCharacterAsync(agentEnum);
+                                await _initiator.Endpoints.PreGameEndpoints.LockCharacterAsync(agentEnum);
+                                Console.WriteLine("[INSTALOCK] Agent locked successfully.");
+
+                                this.Invoke(Close);
+                                break;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to lock agent: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+
+        private void InitializeSocketListener()
+        {
+            _socketManager = new SocketManager(_initiator);
+            _socketManager.OnMessageReceived += async (loopState) =>
+            {
+                if (loopState == "PREGAME" && _confirmClicked)
+                {
+                    Console.WriteLine("Socket detected PREGAME, attempting to lock...");
+                    await LockAgentAsync();
+                }
+            };
+            _socketManager.Initialize();
+        }
+
+        private async Task LockAgentAsync()
+        {
+            if (!_confirmClicked) return;
+
+            try
+            {
+                var match = await _initiator.Endpoints.PreGameEndpoints.FetchPreGamePlayerAsync();
+                if (match?.MatchId == null) return;
+
+                Console.WriteLine($"[INSTALOCK] Found match: {match.MatchId}, locking agent...");
+
+                Agents.Agent? agentData = await GetAgentAsync(_selectedAgentUUID);
+                if (agentData == null) return;
+
+                if (Enum.TryParse<RadiantConnect.Methods.ValorantTables.Agent>(
+                        agentData.Data!.DisplayName.Replace(" ", ""),
+                        out var agentEnum))
+                {
+                    await _initiator.Endpoints.PreGameEndpoints.SelectCharacterAsync(agentEnum);
+                    await _initiator.Endpoints.PreGameEndpoints.LockCharacterAsync(agentEnum);
+                    Console.WriteLine("[INSTALOCK] Agent locked successfully.");
+                    this.Invoke(Close);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[INSTALOCK] Error while locking agent: {ex.Message}");
+            }
+        }
 
         private async Task LoadAgentsAsync()
         {
             try
             {
                 AgentsData? agentsData = await GetAgentsAsync();
-
                 if (agentsData?.Data == null) return;
 
                 var playableAgents = agentsData.Data
-                    .Where(a => a.IsPlayableCharacter == true)
+                    .Where(a => a.IsPlayableCharacter.GetValueOrDefault())
                     .ToList();
 
                 flowAgent.Controls.Clear();
@@ -216,7 +236,6 @@ namespace ValorantCompanion
                 {
                     string uuid = agent.Uuid;
                     string name = agent.DisplayName;
-                    string iconUrl = agent.DisplayIcon;
 
                     var panel = new Panel
                     {
@@ -252,7 +271,7 @@ namespace ValorantCompanion
                     radio.CheckedChanged += (s, e) =>
                     {
                         if (radio.Checked)
-                            _selectedAgentUUID = uuid; 
+                            _selectedAgentUUID = uuid;
                     };
 
                     panel.Controls.Add(pic);
@@ -263,32 +282,16 @@ namespace ValorantCompanion
                     {
                         try
                         {
-                            Image img;
-                            if (_imageCache.ContainsKey(uuid))
+                            var img = await ImageHelper.GetAgentImageAsync(uuid);
+                            if (img != null)
                             {
-                                img = _imageCache[uuid];
-                            }
-                            else
-                            {
-                                string cachedFile = Path.Combine(_cacheFolder, $"{uuid}.png");
-                                if (File.Exists(cachedFile))
-                                {
-                                    img = Image.FromFile(cachedFile);
-                                }
-                                else
-                                {
-                                    using var http = new HttpClient();
-                                    using var stream = await http.GetStreamAsync(iconUrl);
-                                    img = Image.FromStream(stream);
-                                    img.Save(cachedFile);
-                                }
-
                                 _imageCache[uuid] = img;
+                                pic.Invoke((Action)(() => pic.Image = img));
                             }
-
-                            pic.Invoke((Action)(() => pic.Image = img));
                         }
-                        catch { }
+                        catch
+                        {
+                        }
                     }));
                 }
 
@@ -300,5 +303,10 @@ namespace ValorantCompanion
             }
         }
 
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            _confirmClicked = false;
+            base.OnFormClosing(e);
+        }
     }
 }

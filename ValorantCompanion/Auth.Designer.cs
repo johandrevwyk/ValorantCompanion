@@ -50,7 +50,6 @@
             ClientSize = new Size(365, 108);
             Controls.Add(lblstatus);
             Name = "Auth";
-            Load += Auth_Load_1;
             ResumeLayout(false);
             PerformLayout();
         }

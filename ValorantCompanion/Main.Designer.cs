@@ -28,10 +28,13 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Main));
             imgCard = new PictureBox();
             lblPlayerName = new MaterialSkin.Controls.MaterialLabel();
             imgRank = new PictureBox();
             materialCard1 = new MaterialSkin.Controls.MaterialCard();
+            lblRR = new MaterialSkin.Controls.MaterialLabel();
+            progRR = new MaterialSkin.Controls.MaterialProgressBar();
             btnInstaLock = new MaterialSkin.Controls.MaterialButton();
             btnMatch = new MaterialSkin.Controls.MaterialButton();
             btnDodge = new MaterialSkin.Controls.MaterialButton();
@@ -50,6 +53,18 @@
             imgShop2 = new PictureBox();
             statusStrip1 = new StatusStrip();
             tsAuth = new ToolStripStatusLabel();
+            materialCard3 = new MaterialSkin.Controls.MaterialCard();
+            lblKNG = new MaterialSkin.Controls.MaterialLabel();
+            pictureBox3 = new PictureBox();
+            pictureBox2 = new PictureBox();
+            pictureBox1 = new PictureBox();
+            lblRad = new MaterialSkin.Controls.MaterialLabel();
+            lblVP = new MaterialSkin.Controls.MaterialLabel();
+            flowGames = new FlowLayoutPanel();
+            chkMatch = new MaterialSkin.Controls.MaterialCheckbox();
+            materialCard4 = new MaterialSkin.Controls.MaterialCard();
+            materialCard5 = new MaterialSkin.Controls.MaterialCard();
+            materialCard6 = new MaterialSkin.Controls.MaterialCard();
             ((System.ComponentModel.ISupportInitialize)imgCard).BeginInit();
             ((System.ComponentModel.ISupportInitialize)imgRank).BeginInit();
             materialCard1.SuspendLayout();
@@ -59,11 +74,18 @@
             ((System.ComponentModel.ISupportInitialize)imgShop3).BeginInit();
             ((System.ComponentModel.ISupportInitialize)imgShop2).BeginInit();
             statusStrip1.SuspendLayout();
+            materialCard3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)pictureBox3).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pictureBox2).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
+            materialCard4.SuspendLayout();
+            materialCard5.SuspendLayout();
+            materialCard6.SuspendLayout();
             SuspendLayout();
             // 
             // imgCard
             // 
-            imgCard.Location = new Point(867, 79);
+            imgCard.Location = new Point(887, 81);
             imgCard.Name = "imgCard";
             imgCard.Size = new Size(214, 577);
             imgCard.SizeMode = PictureBoxSizeMode.StretchImage;
@@ -86,7 +108,7 @@
             // 
             // imgRank
             // 
-            imgRank.Location = new Point(76, 27);
+            imgRank.Location = new Point(11, 26);
             imgRank.Name = "imgRank";
             imgRank.Size = new Size(65, 65);
             imgRank.SizeMode = PictureBoxSizeMode.StretchImage;
@@ -96,17 +118,41 @@
             // materialCard1
             // 
             materialCard1.BackColor = Color.FromArgb(255, 255, 255);
+            materialCard1.Controls.Add(lblRR);
+            materialCard1.Controls.Add(progRR);
             materialCard1.Controls.Add(lblPlayerName);
             materialCard1.Controls.Add(imgRank);
             materialCard1.Depth = 0;
             materialCard1.ForeColor = Color.FromArgb(222, 0, 0, 0);
-            materialCard1.Location = new Point(867, 556);
+            materialCard1.Location = new Point(887, 558);
             materialCard1.Margin = new Padding(14);
             materialCard1.MouseState = MaterialSkin.MouseState.HOVER;
             materialCard1.Name = "materialCard1";
             materialCard1.Padding = new Padding(14);
             materialCard1.Size = new Size(214, 100);
             materialCard1.TabIndex = 4;
+            // 
+            // lblRR
+            // 
+            lblRR.Depth = 0;
+            lblRR.Font = new Font("Roboto", 12F, FontStyle.Regular, GraphicsUnit.Pixel);
+            lblRR.FontType = MaterialSkin.MaterialSkinManager.fontType.Caption;
+            lblRR.Location = new Point(94, 57);
+            lblRR.MouseState = MaterialSkin.MouseState.HOVER;
+            lblRR.Name = "lblRR";
+            lblRR.Size = new Size(100, 14);
+            lblRR.TabIndex = 4;
+            lblRR.Text = "RR";
+            lblRR.TextAlign = ContentAlignment.MiddleCenter;
+            // 
+            // progRR
+            // 
+            progRR.Depth = 0;
+            progRR.Location = new Point(94, 49);
+            progRR.MouseState = MaterialSkin.MouseState.HOVER;
+            progRR.Name = "progRR";
+            progRR.Size = new Size(100, 5);
+            progRR.TabIndex = 3;
             // 
             // btnInstaLock
             // 
@@ -116,7 +162,7 @@
             btnInstaLock.Depth = 0;
             btnInstaLock.HighEmphasis = true;
             btnInstaLock.Icon = null;
-            btnInstaLock.Location = new Point(22, 79);
+            btnInstaLock.Location = new Point(10, 104);
             btnInstaLock.Margin = new Padding(4, 6, 4, 6);
             btnInstaLock.MouseState = MaterialSkin.MouseState.HOVER;
             btnInstaLock.Name = "btnInstaLock";
@@ -137,7 +183,7 @@
             btnMatch.Depth = 0;
             btnMatch.HighEmphasis = true;
             btnMatch.Icon = null;
-            btnMatch.Location = new Point(230, 79);
+            btnMatch.Location = new Point(11, 56);
             btnMatch.Margin = new Padding(4, 6, 4, 6);
             btnMatch.MouseState = MaterialSkin.MouseState.HOVER;
             btnMatch.Name = "btnMatch";
@@ -159,7 +205,7 @@
             btnDodge.Depth = 0;
             btnDodge.HighEmphasis = true;
             btnDodge.Icon = null;
-            btnDodge.Location = new Point(438, 79);
+            btnDodge.Location = new Point(11, 8);
             btnDodge.Margin = new Padding(4, 6, 4, 6);
             btnDodge.MouseState = MaterialSkin.MouseState.HOVER;
             btnDodge.Name = "btnDodge";
@@ -189,12 +235,12 @@
             materialCard2.Controls.Add(imgShop2);
             materialCard2.Depth = 0;
             materialCard2.ForeColor = Color.FromArgb(222, 0, 0, 0);
-            materialCard2.Location = new Point(22, 668);
+            materialCard2.Location = new Point(22, 718);
             materialCard2.Margin = new Padding(14);
             materialCard2.MouseState = MaterialSkin.MouseState.HOVER;
             materialCard2.Name = "materialCard2";
             materialCard2.Padding = new Padding(14);
-            materialCard2.Size = new Size(1059, 134);
+            materialCard2.Size = new Size(1079, 134);
             materialCard2.TabIndex = 8;
             // 
             // lblShopPrice4
@@ -336,9 +382,9 @@
             // statusStrip1
             // 
             statusStrip1.Items.AddRange(new ToolStripItem[] { tsAuth });
-            statusStrip1.Location = new Point(3, 814);
+            statusStrip1.Location = new Point(3, 892);
             statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(1088, 22);
+            statusStrip1.Size = new Size(1120, 22);
             statusStrip1.TabIndex = 9;
             statusStrip1.Text = "statusStrip1";
             // 
@@ -348,18 +394,178 @@
             tsAuth.Size = new Size(81, 17);
             tsAuth.Text = "Auth Method:";
             // 
+            // materialCard3
+            // 
+            materialCard3.BackColor = Color.FromArgb(255, 255, 255);
+            materialCard3.Controls.Add(lblKNG);
+            materialCard3.Controls.Add(pictureBox3);
+            materialCard3.Controls.Add(pictureBox2);
+            materialCard3.Controls.Add(pictureBox1);
+            materialCard3.Controls.Add(lblRad);
+            materialCard3.Controls.Add(lblVP);
+            materialCard3.Depth = 0;
+            materialCard3.ForeColor = Color.FromArgb(222, 0, 0, 0);
+            materialCard3.Location = new Point(887, 663);
+            materialCard3.Margin = new Padding(14);
+            materialCard3.MouseState = MaterialSkin.MouseState.HOVER;
+            materialCard3.Name = "materialCard3";
+            materialCard3.Padding = new Padding(14);
+            materialCard3.Size = new Size(214, 50);
+            materialCard3.TabIndex = 10;
+            // 
+            // lblKNG
+            // 
+            lblKNG.AutoSize = true;
+            lblKNG.Depth = 0;
+            lblKNG.Font = new Font("Roboto", 12F, FontStyle.Regular, GraphicsUnit.Pixel);
+            lblKNG.FontType = MaterialSkin.MaterialSkinManager.fontType.Caption;
+            lblKNG.Location = new Point(167, 20);
+            lblKNG.MouseState = MaterialSkin.MouseState.HOVER;
+            lblKNG.Name = "lblKNG";
+            lblKNG.Size = new Size(36, 14);
+            lblKNG.TabIndex = 2;
+            lblKNG.Text = "10000";
+            lblKNG.TextAlign = ContentAlignment.MiddleCenter;
+            // 
+            // pictureBox3
+            // 
+            pictureBox3.Image = (Image)resources.GetObject("pictureBox3.Image");
+            pictureBox3.Location = new Point(143, 17);
+            pictureBox3.Name = "pictureBox3";
+            pictureBox3.Size = new Size(20, 20);
+            pictureBox3.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox3.TabIndex = 2;
+            pictureBox3.TabStop = false;
+            // 
+            // pictureBox2
+            // 
+            pictureBox2.Image = (Image)resources.GetObject("pictureBox2.Image");
+            pictureBox2.Location = new Point(79, 17);
+            pictureBox2.Name = "pictureBox2";
+            pictureBox2.Size = new Size(20, 20);
+            pictureBox2.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox2.TabIndex = 1;
+            pictureBox2.TabStop = false;
+            // 
+            // pictureBox1
+            // 
+            pictureBox1.Image = (Image)resources.GetObject("pictureBox1.Image");
+            pictureBox1.Location = new Point(11, 17);
+            pictureBox1.Name = "pictureBox1";
+            pictureBox1.Size = new Size(20, 20);
+            pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox1.TabIndex = 0;
+            pictureBox1.TabStop = false;
+            // 
+            // lblRad
+            // 
+            lblRad.AutoSize = true;
+            lblRad.Depth = 0;
+            lblRad.Font = new Font("Roboto", 12F, FontStyle.Regular, GraphicsUnit.Pixel);
+            lblRad.FontType = MaterialSkin.MaterialSkinManager.fontType.Caption;
+            lblRad.Location = new Point(103, 20);
+            lblRad.MouseState = MaterialSkin.MouseState.HOVER;
+            lblRad.Name = "lblRad";
+            lblRad.Size = new Size(36, 14);
+            lblRad.TabIndex = 1;
+            lblRad.Text = "10000";
+            lblRad.TextAlign = ContentAlignment.MiddleCenter;
+            // 
+            // lblVP
+            // 
+            lblVP.AutoSize = true;
+            lblVP.Depth = 0;
+            lblVP.Font = new Font("Roboto", 12F, FontStyle.Regular, GraphicsUnit.Pixel);
+            lblVP.FontType = MaterialSkin.MaterialSkinManager.fontType.Caption;
+            lblVP.Location = new Point(34, 20);
+            lblVP.MouseState = MaterialSkin.MouseState.HOVER;
+            lblVP.Name = "lblVP";
+            lblVP.Size = new Size(36, 14);
+            lblVP.TabIndex = 0;
+            lblVP.Text = "10000";
+            lblVP.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // flowGames
+            // 
+            flowGames.Location = new Point(11, 12);
+            flowGames.Name = "flowGames";
+            flowGames.Size = new Size(831, 452);
+            flowGames.TabIndex = 11;
+            // 
+            // chkMatch
+            // 
+            chkMatch.AutoSize = true;
+            chkMatch.Depth = 0;
+            chkMatch.Location = new Point(11, 7);
+            chkMatch.Margin = new Padding(0);
+            chkMatch.MouseLocation = new Point(-1, -1);
+            chkMatch.MouseState = MaterialSkin.MouseState.HOVER;
+            chkMatch.Name = "chkMatch";
+            chkMatch.ReadOnly = false;
+            chkMatch.Ripple = true;
+            chkMatch.Size = new Size(274, 37);
+            chkMatch.TabIndex = 12;
+            chkMatch.Text = "Automatically open Match Details";
+            chkMatch.UseVisualStyleBackColor = true;
+            // 
+            // materialCard4
+            // 
+            materialCard4.BackColor = Color.FromArgb(255, 255, 255);
+            materialCard4.Controls.Add(chkMatch);
+            materialCard4.Depth = 0;
+            materialCard4.ForeColor = Color.FromArgb(222, 0, 0, 0);
+            materialCard4.Location = new Point(22, 179);
+            materialCard4.Margin = new Padding(14);
+            materialCard4.MouseState = MaterialSkin.MouseState.HOVER;
+            materialCard4.Name = "materialCard4";
+            materialCard4.Padding = new Padding(14);
+            materialCard4.Size = new Size(296, 51);
+            materialCard4.TabIndex = 13;
+            // 
+            // materialCard5
+            // 
+            materialCard5.BackColor = Color.FromArgb(255, 255, 255);
+            materialCard5.Controls.Add(flowGames);
+            materialCard5.Depth = 0;
+            materialCard5.ForeColor = Color.FromArgb(222, 0, 0, 0);
+            materialCard5.Location = new Point(22, 235);
+            materialCard5.Margin = new Padding(14);
+            materialCard5.MouseState = MaterialSkin.MouseState.HOVER;
+            materialCard5.Name = "materialCard5";
+            materialCard5.Padding = new Padding(14);
+            materialCard5.Size = new Size(859, 478);
+            materialCard5.TabIndex = 14;
+            // 
+            // materialCard6
+            // 
+            materialCard6.BackColor = Color.FromArgb(255, 255, 255);
+            materialCard6.Controls.Add(btnDodge);
+            materialCard6.Controls.Add(btnMatch);
+            materialCard6.Controls.Add(btnInstaLock);
+            materialCard6.Depth = 0;
+            materialCard6.ForeColor = Color.FromArgb(222, 0, 0, 0);
+            materialCard6.Location = new Point(660, 81);
+            materialCard6.Margin = new Padding(14);
+            materialCard6.MouseState = MaterialSkin.MouseState.HOVER;
+            materialCard6.Name = "materialCard6";
+            materialCard6.Padding = new Padding(14);
+            materialCard6.Size = new Size(221, 149);
+            materialCard6.TabIndex = 15;
+            // 
             // Main
             // 
             AutoScaleMode = AutoScaleMode.None;
-            ClientSize = new Size(1094, 839);
+            ClientSize = new Size(1126, 917);
+            Controls.Add(materialCard6);
+            Controls.Add(materialCard5);
+            Controls.Add(materialCard4);
+            Controls.Add(materialCard3);
             Controls.Add(statusStrip1);
             Controls.Add(materialCard2);
-            Controls.Add(btnDodge);
-            Controls.Add(btnMatch);
-            Controls.Add(btnInstaLock);
             Controls.Add(materialCard1);
             Controls.Add(imgCard);
             FormBorderStyle = FormBorderStyle.Sizable;
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "Main";
@@ -375,6 +581,15 @@
             ((System.ComponentModel.ISupportInitialize)imgShop2).EndInit();
             statusStrip1.ResumeLayout(false);
             statusStrip1.PerformLayout();
+            materialCard3.ResumeLayout(false);
+            materialCard3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)pictureBox3).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pictureBox2).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
+            materialCard4.ResumeLayout(false);
+            materialCard4.PerformLayout();
+            materialCard5.ResumeLayout(false);
+            materialCard6.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -403,5 +618,19 @@
         private MaterialSkin.Controls.MaterialLabel lblShopPrice1;
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel tsAuth;
+        private MaterialSkin.Controls.MaterialCard materialCard3;
+        private MaterialSkin.Controls.MaterialLabel lblKNG;
+        private MaterialSkin.Controls.MaterialLabel lblRad;
+        private MaterialSkin.Controls.MaterialLabel lblVP;
+        private PictureBox pictureBox1;
+        private PictureBox pictureBox3;
+        private PictureBox pictureBox2;
+        private MaterialSkin.Controls.MaterialLabel lblRR;
+        private MaterialSkin.Controls.MaterialProgressBar progRR;
+        private FlowLayoutPanel flowGames;
+        private MaterialSkin.Controls.MaterialCheckbox chkMatch;
+        private MaterialSkin.Controls.MaterialCard materialCard4;
+        private MaterialSkin.Controls.MaterialCard materialCard5;
+        private MaterialSkin.Controls.MaterialCard materialCard6;
     }
 }
