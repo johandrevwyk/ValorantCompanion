@@ -59,7 +59,7 @@ namespace ValorantCompanion
 
         public static async Task<Image?> GetTierImageAsync(long playerTier, CompetitiveTiersData tiersData)
         {
-            if (tiersData?.Data == null || playerTier <= 0 || string.IsNullOrEmpty(GlobalClient.EpisodeId))
+            if (tiersData?.Data == null || string.IsNullOrEmpty(GlobalClient.EpisodeId))
                 return null;
 
             try
