@@ -9,13 +9,10 @@ A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms*
 ### Player Overview
 - Displays Riot ID, Player Card.
 - Fetches and shows current MMR and rank icon.
-- Can be opened without having game open
+- Recent competitive matches
 
 ### Match Utilities
 - **Dodge Pre-Game Lobby**: Leave a pre-game match before it starts.
-- **Insta Lock**: Select and lock and agent before the game starts
-> [!WARNING]
-> Riot may ban you for API abuse if you consistently use Insta Lock. Use at your own risk
 - **Match Details**: View all players in the current or pre-game lobby, including:
   - Agent
   - Name (Including hidden)
@@ -23,6 +20,11 @@ A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms*
 
 ### Store & Skins
 - Shows the current skin offers in the store.
+
+### Insta Lock
+- Select and lock and agent before the game starts
+> [!WARNING]
+> Riot may ban you for API abuse if you consistently use Insta Lock. Use at your own risk
 
 ### UI
 - Built with **MaterialSkin** for a modern dark theme.
@@ -39,9 +41,11 @@ A Windows desktop companion app for **Valorant**, built with **C#**, **WinForms*
 ## Screenshots
 
 
-![alt text](https://i.imgur.com/QPEZTqj.png "")
+![alt text](https://i.imgur.com/EgFLIm4.png "")
 ![alt text](https://i.imgur.com/7ahFlq9.png "")
-![alt text](https://i.imgur.com/WRFgXH7.png "")
+![alt text](https://i.imgur.com/gYFapdS.png "")
+
+
 
 ---
 
