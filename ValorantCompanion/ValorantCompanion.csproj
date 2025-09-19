@@ -7,6 +7,14 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>logo.ico</ApplicationIcon>
+	  <Version>1.0.0.3</Version>
+	  <AssemblyVersion>1.0.0.3</AssemblyVersion>
+	  <FileVersion>1.0.0.3</FileVersion>
+	  <Company>heartbreakhotel</Company>
+	  <Product>Valorant Companion</Product>
+	  <Authors>heartbreakhotel</Authors>
+	  <Copyright>Copyright © heartbreakhotel 2025</Copyright>
+	  <Description>A Valorant companion app by heartbreakhotel</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +24,7 @@
   <ItemGroup>
     <PackageReference Include="MaterialSkin.2" Version="2.3.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3405.78" />
-    <PackageReference Include="RadiantConnect" Version="10.3.0" />
+    <PackageReference Include="RadiantConnect" Version="10.4.0" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
